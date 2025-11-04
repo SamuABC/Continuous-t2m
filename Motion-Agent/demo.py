@@ -34,7 +34,7 @@ def motionllm_demo():
     motion = model.denormalize(motion.detach().cpu().numpy())
     motion = recover_from_ric(torch.from_numpy(motion).float().cuda(), 22)
     print(motion.shape)
-    plot_3d_motion(f"output/motionllm_demo.mp4", t2m_kinematic_chain, motion.squeeze().detach().cpu().numpy(), title=caption, fps=20, radius=4)
+    plot_3d_motion(f"output/motionllm_demo.gif", t2m_kinematic_chain, motion.squeeze().detach().cpu().numpy(), title=caption, fps=20, radius=4)
 
 if __name__ == "__main__":
-    motion_agent_demo()
+    motionllm_demo()
