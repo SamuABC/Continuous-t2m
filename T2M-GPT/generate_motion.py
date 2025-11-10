@@ -1,5 +1,9 @@
 # change the text here
-clip_text = ["a person is running in circles"]
+import sys
+if len(sys.argv) < 2:
+    clip_text = ["a person is running in circles"]
+else:
+    clip_text = [sys.argv[1]]
 
 
 
