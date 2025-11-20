@@ -156,7 +156,7 @@ T2M_render
 render_final_t2m.py
 
 # ML cloud
-motiongeneration.sh
+mlcloud_scripts/
 
 # VIT
 ViT-B-32.pt
