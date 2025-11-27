@@ -5,6 +5,7 @@ from visualization.visualization import visualize_mlp_motion
 import random
 import config as cfg
 
+print("Loading data...")
 _, _, _, val_dataset = get_loaders(batch_size=1)
 
 
@@ -25,6 +26,7 @@ def sample_start_pose(device="cuda"):
 
 
 # load model
+print("Loading model...")
 model = MotionMLP()
 model.load_state_dict(torch.load("checkpoints/mlp_autoreg.pth"))
 model.eval().cuda()
@@ -32,12 +34,11 @@ model.eval().cuda()
 # setup for generation
 generated_frames = []
 current_input = sample_start_pose()  # (1, 1, D)
-frames = 40
 
 print("Generating motion...")
 # Autoregressive loop
 with torch.no_grad():
-    for _ in range(frames):
+    for _ in range(cfg.GENERATED_FRAMES):
         # Prediction
         next_pose = model(current_input)  # (1, 1, D)
         generated_frames.append(next_pose)
