@@ -1,8 +1,10 @@
 from model import MotionMLP
-from dataset import val_dataset, dimension, mean, std
+from dataset import get_loaders, dimension, mean, std
 import torch
 from visualization.visualization import visualize_mlp_motion
 import random
+
+_, _, _, val_dataset = get_loaders(batch_size=1)
 
 def sample_start_pose(device="cuda"):
     """

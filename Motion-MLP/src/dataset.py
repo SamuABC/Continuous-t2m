@@ -8,7 +8,6 @@ VEC_DIR = os.path.join(DATA_DIR, "new_joint_vecs")
 
 mean = np.load(os.path.join(DATA_DIR, "Mean.npy"))
 std  = np.load(os.path.join(DATA_DIR, "Std.npy"))
-batch_size = 64
 dimension = 263
 
 class HumanML3DAutoRegDataset(Dataset):
@@ -47,10 +46,13 @@ class HumanML3DAutoRegDataset(Dataset):
         return torch.from_numpy(x).float(), torch.from_numpy(y).float()
 
 
-# train 
-train_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "train.txt"), seq_len=30)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+def get_loaders(batch_size=64):
+    # training
+    train_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "train.txt"), seq_len=30)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
-# validation
-val_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "val.txt"), seq_len=30)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    # validation
+    val_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "val.txt"), seq_len=30)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+
+    return train_loader, val_loader, train_dataset, val_dataset
