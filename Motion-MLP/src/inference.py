@@ -1,8 +1,9 @@
 from model import MotionMLP
-from dataset import get_loaders, dimension, mean, std
+from dataset import get_loaders
 import torch
 from visualization.visualization import visualize_mlp_motion
 import random
+import config as cfg
 
 _, _, _, val_dataset = get_loaders(batch_size=1)
 
@@ -24,7 +25,7 @@ def sample_start_pose(device="cuda"):
 
 
 # load model
-model = MotionMLP(input_dim=dimension)
+model = MotionMLP()
 model.load_state_dict(torch.load("checkpoints/mlp_autoreg.pth"))
 model.eval().cuda()
 
@@ -48,4 +49,4 @@ with torch.no_grad():
     y_pred = torch.cat(generated_frames, dim=1)  # (1, T, D)
     y_pred = y_pred[0]  # (T, D)
 
-visualize_mlp_motion(y_pred, mean, std)
+visualize_mlp_motion(y_pred, cfg.MEAN, cfg.STD)
