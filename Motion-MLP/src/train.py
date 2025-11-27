@@ -27,6 +27,7 @@ def train_one_epoch(model, loader, optimizer, device="cuda"):
 
     return total_loss / count
 
+
 @torch.no_grad()
 def eval_epoch(model, loader, device="cuda"):
     model.eval()
@@ -41,6 +42,7 @@ def eval_epoch(model, loader, device="cuda"):
         count += x.size(0)
     return total_loss / count
 
+
 def train():
     os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
     train_loader, val_loader, _, _ = get_loaders(batch_size=cfg.BATCH_SIZE)
@@ -53,14 +55,20 @@ def train():
     for epoch in range(1, cfg.NUM_EPOCHS + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
         val_loss = eval_epoch(model, val_loader, device)
-        print(f"Epoch {epoch:03d} | train_loss={train_loss:.6f} | val_loss={val_loss:.6f}")
+        print(
+            f"Epoch {epoch:03d} | train_loss={train_loss:.6f} | val_loss={val_loss:.6f}"
+        )
     torch.save(model.state_dict(), "checkpoints/mlp_autoreg.pth")
-    torch.save({
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "epoch": epoch,
-    }, "checkpoints/mlp_autoreg_full.pth")
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "epoch": epoch,
+        },
+        "checkpoints/mlp_autoreg_full.pth",
+    )
     print("Training complete. Model saved.")
+
 
 if __name__ == "__main__":
     train()

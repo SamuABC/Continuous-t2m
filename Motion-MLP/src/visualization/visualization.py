@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from utils.motion_process import recover_from_ric
 import visualization.plot_3d_global as plot_3d

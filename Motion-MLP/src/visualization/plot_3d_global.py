@@ -4,7 +4,6 @@ import numpy as np
 import io
 import matplotlib
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import mpl_toolkits.mplot3d.axes3d as p3
 from textwrap import wrap
 import imageio
 

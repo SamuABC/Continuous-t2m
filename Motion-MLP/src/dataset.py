@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from config import VEC_DIR, DATA_DIR, MEAN, STD
 
+
 class HumanML3DAutoRegDataset(Dataset):
     def __init__(self, list_file, seq_len=30):
         self.seq_len = seq_len
@@ -31,22 +32,28 @@ class HumanML3DAutoRegDataset(Dataset):
             data = np.concatenate([data, pad], axis=0)
 
         # we take the first seq_len + 1 frames
-        data = data[:self.seq_len + 1]  # (seq_len+1, D)
+        data = data[: self.seq_len + 1]  # (seq_len+1, D)
 
         # autoregressive: x_t -> x_{t+1}
         x = data[:-1]  # (seq_len, D)
-        y = data[1:]   # (seq_len, D)
+        y = data[1:]  # (seq_len, D)
 
         return torch.from_numpy(x).float(), torch.from_numpy(y).float()
 
 
 def get_loaders(batch_size=64):
     # training
-    train_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "train.txt"), seq_len=30)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+    train_dataset = HumanML3DAutoRegDataset(
+        os.path.join(DATA_DIR, "train.txt"), seq_len=30
+    )
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=4
+    )
 
     # validation
     val_dataset = HumanML3DAutoRegDataset(os.path.join(DATA_DIR, "val.txt"), seq_len=30)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=4
+    )
 
     return train_loader, val_loader, train_dataset, val_dataset
