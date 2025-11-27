@@ -2,21 +2,15 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
-
-DATA_DIR = "data/HumanML3D"
-VEC_DIR = os.path.join(DATA_DIR, "new_joint_vecs")
-
-mean = np.load(os.path.join(DATA_DIR, "Mean.npy"))
-std  = np.load(os.path.join(DATA_DIR, "Std.npy"))
-dimension = 263
+from config import VEC_DIR, DATA_DIR, MEAN, STD
 
 class HumanML3DAutoRegDataset(Dataset):
     def __init__(self, list_file, seq_len=30):
         self.seq_len = seq_len
         with open(list_file, "r") as f:
             self.sample_ids = [line.strip() for line in f if line.strip()]
-        self.mean = mean
-        self.std = std
+        self.mean = MEAN
+        self.std = STD
 
     def __len__(self):
         return len(self.sample_ids)

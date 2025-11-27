@@ -1,7 +1,9 @@
 import torch.nn as nn
+import config as cfg
 
 class MotionMLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim=1024, num_layers=3):
+    def __init__(self, input_dim=cfg.DIMENSION, hidden_dim=cfg.HIDDEN_DIM, 
+                 num_layers=cfg.NUM_LAYERS):
         super().__init__()
         layers = []
         dim_in = input_dim

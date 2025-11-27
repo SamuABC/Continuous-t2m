@@ -1,9 +1,10 @@
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
-from dataset import dimension, get_loaders
+from dataset import get_loaders
 from model import MotionMLP
 import os
+import config as cfg
 
 
 def train_one_epoch(model, loader, optimizer, device="cuda"):
@@ -41,17 +42,15 @@ def eval_epoch(model, loader, device="cuda"):
     return total_loss / count
 
 def train():
-    os.makedirs("checkpoints", exist_ok=True)
-    train_loader, val_loader, _, _ = get_loaders(batch_size=64)
-    model = MotionMLP(input_dim=dimension).cuda()
-    lr = 1e-4
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
+    train_loader, val_loader, _, _ = get_loaders(batch_size=cfg.BATCH_SIZE)
+    model = MotionMLP().cuda()
+    optimizer = optim.Adam(model.parameters(), lr=cfg.LR)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
-    num_epochs = 20
 
     print("Starting training...")
-    for epoch in range(1, num_epochs + 1):
+    for epoch in range(1, cfg.NUM_EPOCHS + 1):
         train_loss = train_one_epoch(model, train_loader, optimizer, device)
         val_loss = eval_epoch(model, val_loader, device)
         print(f"Epoch {epoch:03d} | train_loss={train_loss:.6f} | val_loss={val_loss:.6f}")
