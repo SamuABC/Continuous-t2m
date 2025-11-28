@@ -8,7 +8,7 @@ VEC_DIR = os.path.join(DATA_DIR, "new_joint_vecs")
 CHECKPOINT_DIR = "checkpoints"
 
 # Model Checkpoint for Inference
-INFERENCE_MODEL_PATH = os.path.join("pretrained", "motionmlp_ep020_val0.0388.pth")
+INFERENCE_MODEL_PATH = os.path.join("pretrained", "best_model.pth")
 
 # Data Params
 DIMENSION = 263
@@ -23,7 +23,7 @@ NUM_LAYERS = 3
 # Training Params
 BATCH_SIZE = 64
 LR = 1e-4
-NUM_EPOCHS = 20
+NUM_EPOCHS = 40
 NUM_WORKERS = 4
 PATIENCE = 5
 
