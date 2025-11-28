@@ -1,9 +1,11 @@
-from model import MotionMLP
-from dataset import get_loaders
-import torch
-from visualization.visualization import visualize_mlp_motion
 import random
+
+import torch
+
 import config as cfg
+from dataset import get_loaders
+from model import MotionMLP
+from visualization.visualization import visualize_mlp_motion
 
 print("Loading data...")
 _, _, _, val_dataset = get_loaders(batch_size=1)

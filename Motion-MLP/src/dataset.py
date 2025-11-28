@@ -1,8 +1,10 @@
 import os
+
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
-from config import VEC_DIR, DATA_DIR, MEAN, STD
+from torch.utils.data import DataLoader, Dataset
+
+from config import DATA_DIR, MEAN, STD, VEC_DIR
 
 
 class HumanML3DAutoRegDataset(Dataset):

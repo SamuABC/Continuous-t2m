@@ -1,10 +1,12 @@
+import os
+
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
+import torch.optim as optim
+
+import config as cfg
 from dataset import get_loaders
 from model import MotionMLP
-import os
-import config as cfg
 
 
 def train_one_epoch(model, loader, optimizer, device="cuda"):

@@ -1,11 +1,12 @@
-import torch
+import io
+from textwrap import wrap
+
+import imageio
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import io
-import matplotlib
+import torch
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from textwrap import wrap
-import imageio
 
 
 def plot_3d_motion(args, figsize=(10, 10), fps=120, radius=4):
