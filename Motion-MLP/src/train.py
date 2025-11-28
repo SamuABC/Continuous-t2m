@@ -58,16 +58,10 @@ def train():
         print(
             f"Epoch {epoch:03d} | train_loss={train_loss:.6f} | val_loss={val_loss:.6f}"
         )
-    torch.save(model.state_dict(), "checkpoints/mlp_autoreg.pth")
     torch.save(
-        {
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "epoch": epoch,
-        },
-        "checkpoints/mlp_autoreg_full.pth",
+        model.state_dict(), f"checkpoints/motionmlp_ep{epoch:03d}_val{val_loss:.4f}.pth"
     )
-    print("Training complete. Model saved.")
+    print("Training complete. Model saved to checkpoints/")
 
 
 if __name__ == "__main__":

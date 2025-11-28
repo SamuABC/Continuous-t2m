@@ -28,7 +28,7 @@ def sample_start_pose(device="cuda"):
 # load model
 print("Loading model...")
 model = MotionMLP()
-model.load_state_dict(torch.load("checkpoints/mlp_autoreg.pth"))
+model.load_state_dict(torch.load(cfg.INFERENCE_MODEL_PATH))
 model.eval().cuda()
 
 # setup for generation

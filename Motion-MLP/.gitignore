@@ -4,4 +4,3 @@ mlcloud-scripts/
 output/
 
 __pycache__/
-*.pth

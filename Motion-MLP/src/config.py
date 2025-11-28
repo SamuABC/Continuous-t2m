@@ -6,6 +6,9 @@ DATA_DIR = "data/HumanML3D"
 VEC_DIR = os.path.join(DATA_DIR, "new_joint_vecs")
 CHECKPOINT_DIR = "checkpoints"
 
+# Model Checkpoint for Inference
+INFERENCE_MODEL_PATH = os.path.join("pretrained", "motionmlp_ep020_val0.0388.pth")
+
 # Data Params
 DIMENSION = 263
 SEQ_LEN = 30

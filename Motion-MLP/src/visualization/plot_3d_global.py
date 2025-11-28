@@ -94,8 +94,10 @@ def plot_3d_motion(args, figsize=(10, 10), fps=120, radius=4):
 
         init()
 
-        ax.lines = []
-        ax.collections = []
+        for line in list(ax.lines):
+            line.remove()
+        for c in list(ax.collections):
+            c.remove()
         ax.view_init(elev=110, azim=-90)
         ax.dist = 7.5
         #         ax =
@@ -143,15 +145,10 @@ def plot_3d_motion(args, figsize=(10, 10), fps=120, radius=4):
             plt.close()
 
         else:
-            io_buf = io.BytesIO()
-            fig.savefig(io_buf, format="raw", dpi=96)
-            io_buf.seek(0)
-            # print(fig.bbox.bounds)
-            arr = np.reshape(
-                np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
-                newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1),
-            )
-            io_buf.close()
+            fig.canvas.draw()
+            w, h = fig.canvas.get_width_height()
+            arr = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+            arr = arr.reshape((h, w, 3))
             plt.close()
             return arr
 
@@ -176,6 +173,6 @@ def draw_to_batch(smpl_joints_batch, title_batch=None, outname=None):
             )
         )
         if outname is not None:
-            imageio.mimsave(outname[i], np.array(out[-1]), fps=20)
+            imageio.mimsave(outname[i], np.array(out[-1]), fps=20, loop=0)
     out = torch.stack(out, axis=0)
     return out
