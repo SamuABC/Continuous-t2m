@@ -20,6 +20,7 @@ To generate a motion with a random starting pose from the HumanML3D Dataset, run
 ```bash
 python3 src/inference.py
 ```
-You can use the pretrained weights or the ones you trained. You can set the path in `config.py`
+You can use the pretrained weights or the ones you trained. You can set the path in `config.py`.
+The number of generated frames can also be set in `config.py`.
 
 
