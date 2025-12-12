@@ -1,0 +1,6 @@
+checkpoints/
+HumanML3D
+mlcloud-scripts/
+output/
+
+__pycache__/
