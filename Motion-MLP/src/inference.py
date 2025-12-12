@@ -1,8 +1,7 @@
 import random
 
-import torch
-
 import config as cfg
+import torch
 from dataset import get_loaders
 from model import MotionMLP
 from visualization.visualization import visualize_mlp_motion

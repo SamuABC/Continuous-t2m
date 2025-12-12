@@ -1,11 +1,10 @@
 import os
-import matplotlib.pyplot as plt
 
+import config as cfg
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-
-import config as cfg
 from dataset import get_loaders
 from model import MotionMLP
 
