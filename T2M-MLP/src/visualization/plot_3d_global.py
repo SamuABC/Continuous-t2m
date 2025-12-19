@@ -1,4 +1,3 @@
-import io
 from textwrap import wrap
 
 import imageio
