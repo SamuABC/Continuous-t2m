@@ -53,7 +53,7 @@ class HumanML3DDataset(Dataset):
         )
 
         return {
-            "motion": torch.tensor(motion, dtype=torch.float32),
+            "motion": motion.float(),
             "input_ids": text_inputs["input_ids"].squeeze(0),
             "attention_mask": text_inputs["attention_mask"].squeeze(0),
         }
