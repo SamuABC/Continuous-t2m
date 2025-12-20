@@ -18,6 +18,8 @@ SPLIT_FILE_TRAIN = "./HumanML3D/train.txt"
 SPLIT_FILE_VAL = "./HumanML3D/val.txt"
 MODEL_ID = "Qwen/Qwen1.5-0.5B"
 MOTION_DIM = 263  # HumanML3D standard dimension
+TF_START = 1.0  # Start with full teacher forcing
+TF_END = 0.7  # End with 30% model predictions (don't go too low for Transformers)
 
 # --- Setup ---
 # 1. Initialize Model
@@ -61,13 +63,19 @@ print(
 )
 
 for epoch in range(EPOCHS):
+    # Calculate Teacher Forcing Ratio for this epoch (Linear Decay)
+    # Formula: ratio = start - (progress * (start - end))
+    tf_ratio = TF_START - (epoch / max(1, EPOCHS - 1)) * (TF_START - TF_END)
+    tf_ratio = max(TF_END, tf_ratio)  # Clamp
+
+    print(f"Epoch {epoch+1} | Teacher Forcing Ratio: {tf_ratio:.2f}")
+
     # ==========================
     #       Training Phase
     # ==========================
-    model.train()  # Set model to training mode (enables Dropout/LoRA updates)
+    model.train()
     total_train_loss = 0
-
-    progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{EPOCHS} [Train]")
+    progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1} [Train]")
 
     for batch in progress_bar:
         input_ids = batch["input_ids"].to(DEVICE)
@@ -76,8 +84,10 @@ for epoch in range(EPOCHS):
 
         optimizer.zero_grad()
 
-        # Forward pass (loss is calculated internally)
-        loss, predictions = model(input_ids, motion, motion_mask)
+        # Pass the calculated ratio
+        loss, predictions = model(
+            input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio
+        )
 
         loss.backward()
         optimizer.step()
@@ -116,7 +126,7 @@ for epoch in range(EPOCHS):
     )
 
     # Save Checkpoint
-    torch.save(model.state_dict(), f"checkpoints/motion_qwen_epoch_{epoch+1}.pt")
+    torch.save(model.state_dict(), f"checkpoints/scheduled_sampling{epoch+1}.pt")
 
     # --- Plotting Results ---
     # Create a new figure for this epoch update
@@ -135,8 +145,9 @@ for epoch in range(EPOCHS):
     plt.grid(True)
 
     # Save plot to file
-    plt.savefig("checkpoints/loss_plot.png")
-    print("Loss plot saved to 'checkpoints/loss_plot.png'")
+    LOSSPLOT_PATH = "checkpoints/loss_plot.png"
+    plt.savefig(LOSSPLOT_PATH)
+    print(f"Loss plot saved to '{LOSSPLOT_PATH}'.")
     plt.close()
 
 print("Training complete.")

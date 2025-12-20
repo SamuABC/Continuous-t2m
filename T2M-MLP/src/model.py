@@ -42,7 +42,36 @@ class MotionQwen(nn.Module):
         # or used during inference as a stopping condition.
         self.end_motion_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
 
-    def forward(self, input_ids, motion, motion_mask):
+    def forward(self, input_ids, motion, motion_mask, teacher_forcing_ratio=1.0):
+        # standard training ( 1 pass)
+        if teacher_forcing_ratio == 1.0 or not self.training:
+            return self._run_forward_pass(input_ids, motion, motion_mask)
+
+        # Scheduled Sampling (2 passes)
+
+        # get predicted motion without gradient tracking
+        with torch.no_grad():
+            _, predicted_motion = self._run_forward_pass(input_ids, motion, motion_mask)
+
+        # mixing
+        B, T, D = motion.shape
+        mixing_mask = torch.bernoulli(
+            torch.full((B, T, 1), teacher_forcing_ratio, device=motion.device)
+        )
+
+        mixed_motion = mixing_mask * motion + (1 - mixing_mask) * predicted_motion
+
+        # learn with mixed motion
+        loss, predicted_motion = self._run_forward_pass(
+            input_ids, mixed_motion, motion_mask
+        )
+
+        return loss, predicted_motion
+
+    def _run_forward_pass(self, input_ids, motion, motion_mask):
+        """
+        Helper method containing the core logic to avoid code duplication.
+        """
         device = input_ids.device
         B, T, D = motion.shape
 
@@ -51,54 +80,42 @@ class MotionQwen(nn.Module):
         text_embeds = transformer.embed_tokens(input_ids)
         motion_embeds = self.motion_encoder(motion)
 
-        # Start token for the first prediction, motion frames shifted for teacher forcing
         start_token = self.start_motion_token.expand(B, -1, -1)
-        motion_input = motion_embeds[:, :-1, :]  # Frames M_0 to M_{T-2}
+        # Shift inputs: M_0 ... M_{T-2} predicts M_1 ... M_{T-1}
+        motion_input = motion_embeds[:, :-1, :]
 
-        # Concatenate: [Text tokens, Start token, Motion frames]
         inputs_embeds = torch.cat([text_embeds, start_token, motion_input], dim=1)
 
-        # 2. CREATE 4D CAUSAL ATTENTION MASK
-        # Binary masks for padding
+        # 2. Masks
         text_mask = (input_ids != self.tokenizer.pad_token_id).long()
         start_mask = torch.ones((B, 1), device=device)
         motion_mask_in = motion_mask[:, :-1]
 
-        # Combine into 2D mask (Batch, Seq_Len)
         mask_2d = torch.cat([text_mask, start_mask, motion_mask_in], dim=1)
         seq_len = mask_2d.shape[1]
 
-        # Create causal triangular mask
-        # (Seq_Len, Seq_Len) -> (1, 1, Seq_Len, Seq_Len)
         causal_mask = torch.tril(torch.ones((seq_len, seq_len), device=device)).view(
             1, 1, seq_len, seq_len
         )
-
-        # Expand padding mask to 4D
         padding_mask = mask_2d.view(B, 1, 1, seq_len)
-
-        # Combine causal and padding masks
         combined_mask = causal_mask * padding_mask
 
-        # Convert to attention logits: 0.0 for visible, -inf for masked
         min_dtype = torch.finfo(inputs_embeds.dtype).min
         inverted_mask = (1.0 - combined_mask) * min_dtype
 
-        # 3. DYNAMIC POSITION ALIGNMENT
+        # 3. Position Ids
         text_positions = (text_mask.cumsum(dim=1) - 1).clamp(min=0)
-        text_lengths = text_mask.sum(dim=1, keepdim=True)  # e.g., 2
+        text_lengths = text_mask.sum(dim=1, keepdim=True)
         start_position = text_lengths
         motion_range = torch.arange(
             1, motion_input.shape[1] + 1, device=device
         ).unsqueeze(0)
         motion_positions = start_position + motion_range
-
-        # Final Shape: (B, Total_Seq_Len)
         position_ids = torch.cat(
             [text_positions, start_position, motion_positions], dim=1
         ).long()
 
-        # 4. Forward Pass through Qwen
+        # 4. Forward
         outputs = self.qwen(
             inputs_embeds=inputs_embeds,
             attention_mask=inverted_mask,
@@ -106,20 +123,15 @@ class MotionQwen(nn.Module):
             output_hidden_states=True,
         )
 
-        # Extract hidden states for motion prediction (indices after text)
         last_hidden_state = outputs.hidden_states[-1]
         text_len = text_embeds.shape[1]
         motion_hidden_out = last_hidden_state[:, text_len:, :]
 
-        # Decode to motion space
         predicted_motion = self.motion_decoder(motion_hidden_out)
 
-        # 5. MASKED MSE LOSS
-        # predicted_motion[0] predicts motion[0] (target)
+        # 5. Loss
         loss_fn = nn.MSELoss(reduction="none")
         loss_unreduced = loss_fn(predicted_motion, motion)
-
-        # Mean over motion dimension, then apply frame-wise mask
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
 
