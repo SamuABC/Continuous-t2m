@@ -10,4 +10,4 @@ prompt = "A person walking forward."
 model = MotionQwen(base_model_id="Qwen/Qwen1.5-0.5B", motion_dim=263)
 model.load_state_dict(torch.load("checkpoints/motion_qwen_epoch_10.pt"))
 model.eval()
-visualize_transformer_motion(model, prompt, output_path="output/qwen_motion.gif")
+visualize_transformer_motion(model, prompt, output_path="output/motion.gif")
