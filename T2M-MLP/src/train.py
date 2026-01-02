@@ -154,9 +154,12 @@ for epoch in range(cfg.EPOCHS):
     print(f"Epoch Done. Train: {avg_train_loss:.4f} | Val: {avg_val_loss:.4f}")
 
     # --- Save & Plot ---
+    trainable_state_dict = {
+        k: v for k, v in model.named_parameters() if v.requires_grad
+    }
     torch.save(
-        model.state_dict(),
-        os.path.join(cfg.CHECKPOINT_DIR, f"scheduled_sampling_ckpt_ep{epoch+1}.pt"),
+        trainable_state_dict,
+        os.path.join(cfg.CHECKPOINT_DIR, f"trained_params_ep{epoch+1}.pt"),
     )
     save_history(epoch + 1, train_losses_epoch, val_losses_epoch, train_losses_step)
     plot_losses(train_losses_step, train_losses_epoch, val_losses_epoch)

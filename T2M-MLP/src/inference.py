@@ -12,7 +12,20 @@ def generate(prompt: str):
     generates and visualizes a motion sequence from a text prompt
     """
     model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
-    model.load_state_dict(torch.load(cfg.INFERENCE_MODEL_PATH))
+    missing_keys, unexpected_keys = model.load_state_dict(
+        torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), 
+        strict=False
+    )
+
+    # safety check if all critical modules are loaded
+    critical_modules = ["motion_encoder", "motion_decoder", "lora_A", "lora_B"]
+    for key in missing_keys:
+        for critical in critical_modules:
+            if critical in key:
+                print(f"WARNING: Critical key not loaded: {key}")
+
+    model.to(cfg.DEVICE)
+
     model.eval()
 
     print(f"Generating motion for: '{prompt}'...")
