@@ -1,13 +1,40 @@
-import torch
-from visualization.visualization import visualize_transformer_motion
-from model import MotionQwen
+import sys
 
-# --- Usage Example ---
-# Assuming 'cfg' has MEAN and STD loaded from the dataset meta files
-# prompt = "A person walks in a circle"
-# visualize_transformer_motion(model, prompt, cfg.MEAN, cfg.STD)
-prompt = "A person walking forward."
-model = MotionQwen(base_model_id="Qwen/Qwen1.5-0.5B", motion_dim=263)
-model.load_state_dict(torch.load("checkpoints/scheduled_sampling_ckpt_ep7.pt"))
-model.eval()
-visualize_transformer_motion(model, prompt, output_path="output/motion.gif")
+import config as cfg
+import numpy as np
+import torch
+from model import MotionQwen
+from visualization.visualization import visualize_transformer_motion
+
+
+def generate(prompt: str):
+    """
+    generates and visualizes a motion sequence from a text prompt
+    """
+    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+    model.load_state_dict(torch.load(cfg.INFERENCE_MODEL_PATH))
+    model.eval()
+
+    print(f"Generating motion for: '{prompt}'...")
+    mean = np.load(cfg.DATA_ROOT + "/Mean.npy")
+    std = np.load(cfg.DATA_ROOT + "/Std.npy")
+
+    # returns tensor of shape (1, Seq_Len, Motion_Dim)
+    with torch.no_grad():
+        generated_motion = model.generate(prompt, max_new_tokens=120)
+
+    # remove batch dimension -> (Seq_Len, Motion_Dim)
+    y_pred = generated_motion[0].cpu().numpy()
+
+    # denormalize
+    y_pred_denorm = y_pred * std + mean
+
+    visualize_transformer_motion(y_pred_denorm, prompt)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        prompt = sys.argv[1]
+        generate(prompt)
+    else:
+        print("No prompt provided.")
