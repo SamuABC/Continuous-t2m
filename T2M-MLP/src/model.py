@@ -11,8 +11,8 @@ class MotionQwen(nn.Module):
         # load Qwen Backbone & Tokenizer
         self.qwen = AutoModelForCausalLM.from_pretrained(base_model_id)
         self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
-        print("tokenizer used:", self.tokenizer)
-        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        if self.tokenizer.pad_token_id is None:
+            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
         # configure LoRA
         peft_config = LoraConfig(
@@ -81,11 +81,14 @@ class MotionQwen(nn.Module):
         inputs_embeds = torch.cat([text_embeds, start_token, motion_input], dim=1)
 
         # masks
-        text_mask = (input_ids != self.tokenizer.pad_token_id).long()
-        start_mask = torch.ones((B, 1), device=device)
-        motion_mask_in = motion_mask[:, :-1]
+        text_mask = input_ids != self.tokenizer.pad_token_id
+        text_mask_float = text_mask.to(dtype=inputs_embeds.dtype)
+        start_mask_float = torch.ones((B, 1), device=device, dtype=inputs_embeds.dtype)
+        motion_mask_in_float = motion_mask[:, :-1].to(dtype=inputs_embeds.dtype)
 
-        mask_2d = torch.cat([text_mask, start_mask, motion_mask_in], dim=1)
+        mask_2d = torch.cat(
+            [text_mask_float, start_mask_float, motion_mask_in_float], dim=1
+        )
         seq_len = mask_2d.shape[1]
 
         causal_mask = torch.tril(torch.ones((seq_len, seq_len), device=device)).view(
@@ -133,31 +136,42 @@ class MotionQwen(nn.Module):
 
     @torch.no_grad()
     def generate(self, text, max_new_tokens=120):
-        """
-        text: Input string
-        max_new_tokens: Number of motion frames to generate
-        """
         self.eval()
         device = self.qwen.device
 
-        inputs = self.tokenizer(text, return_tensors="pt").to(device)
+        # prepare text inputs
+        inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
         input_ids = inputs.input_ids
 
+        attention_mask = inputs.attention_mask
+
+        # get text embeddings
         transformer = self.qwen.base_model.model.model
         text_embeds = transformer.embed_tokens(input_ids)
 
-        B = text_embeds.shape[0]
+        B, L, _ = text_embeds.shape
         start_token = self.start_motion_token.expand(B, -1, -1)
 
+        # concat: [text, start_token]
         current_inputs_embeds = torch.cat([text_embeds, start_token], dim=1)
+
+        # update attention mask for start token (add 1s to the right)
+        start_mask = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
+        attention_mask = torch.cat([attention_mask, start_mask], dim=1)
+
+        # get position ids of valid tokens (0-based indexing)
+        position_ids = (attention_mask.cumsum(dim=1) - 1).clamp(min=0)
 
         past_key_values = DynamicCache()
         generated_frames = []
 
-        for _ in range(max_new_tokens):
+        # generation loop
+        for i in range(max_new_tokens):
             outputs = self.qwen(
                 inputs_embeds=current_inputs_embeds,
                 past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
                 use_cache=True,
                 output_hidden_states=True,
             )
@@ -166,11 +180,19 @@ class MotionQwen(nn.Module):
 
             last_hidden_state = outputs.hidden_states[-1][:, -1:, :]
 
+            # predicted motion
             pred_motion = self.motion_decoder(last_hidden_state)
             generated_frames.append(pred_motion)
 
+            # encode output to latent space for next step
             current_inputs_embeds = self.motion_encoder(pred_motion)
 
-        full_motion = torch.cat(generated_frames, dim=1)
+            # add 1 column to attention mask for the new frame
+            new_mask_col = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
+            attention_mask = torch.cat([attention_mask, new_mask_col], dim=1)
 
+            # update position ids (increment the last pos by 1)
+            position_ids = position_ids[:, -1:] + 1
+
+        full_motion = torch.cat(generated_frames, dim=1)
         return full_motion

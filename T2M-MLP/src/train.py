@@ -12,55 +12,49 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-def save_history(epoch, train_ep, val_ep, train_step):
-    """Saves raw data to JSON for later plotting."""
+def save_history(epoch, train_ep, val_ep, tf_ratios):
+    """Saves raw data to JSON including Teacher Forcing history."""
     data = {
-        "epoch": epoch,
+        "number_of_epochs": epoch,
         "train_loss_epoch": train_ep,
         "val_loss_epoch": val_ep,
-        "train_loss_step": train_step,
+        "tf_ratios": tf_ratios,
     }
     with open(os.path.join(cfg.CHECKPOINT_DIR, "training_history.json"), "w") as f:
         json.dump(data, f)
 
 
-def plot_losses(train_step, train_ep, val_ep):
-    """Generates a detailed dual-plot."""
+def plot_losses(train_ep, val_ep, tf_ratios):
+    """Generates a plot: Epoch Loss (Top) and Teacher Forcing (Bottom)."""
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+    epochs_range = range(1, len(train_ep) + 1)
 
-    # subplot 1: step loss
-    ax1.plot(train_step, label="Step Loss", alpha=0.3, color="gray")
-    # add a moving average for readability if there are enough steps
-    if len(train_step) > 50:
-        window = 50
-        # moving average
-        avg = np.convolve(train_step, np.ones(window) / window, mode="valid")
-        ax1.plot(
-            np.arange(window - 1, len(train_step)),
-            avg,
-            label="Moving Avg (50 steps)",
-            color="blue",
-        )
-
-    ax1.set_title("Training Loss per Step")
-    ax1.set_xlabel("Steps (Batches)")
+    # Subplot 1: Loss per Epoch
+    ax1.plot(epochs_range, train_ep, label="Train Avg", marker="o", color="blue")
+    ax1.plot(epochs_range, val_ep, label="Val Avg", marker="x", color="red")
+    ax1.set_title("Average Loss per Epoch")
+    ax1.set_xlabel("Epochs")
     ax1.set_ylabel("Loss")
     ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    ax1.grid(True)
 
-    # subplot 2: epoch averages (train vs. val)
-    epochs_range = range(1, len(train_ep) + 1)
-    ax2.plot(epochs_range, train_ep, label="Train Avg", marker="o", color="blue")
-    ax2.plot(epochs_range, val_ep, label="Val Avg", marker="x", color="red")
-
-    ax2.set_title("Average Loss per Epoch")
+    # Subplot 2: Teacher Forcing Schedule
+    ax2.plot(
+        epochs_range,
+        tf_ratios,
+        label="Teacher Forcing Ratio",
+        marker=".",
+        color="green",
+    )
+    ax2.set_title("Teacher Forcing Schedule")
     ax2.set_xlabel("Epochs")
-    ax2.set_ylabel("Loss")
+    ax2.set_ylabel("Ratio")
+    ax2.set_ylim(-0.1, 1.1)
     ax2.legend()
     ax2.grid(True)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "loss_plot_detailed.png"))
+    plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "loss_plot.png"))
     plt.close()
 
 
@@ -90,27 +84,38 @@ val_dataloader = DataLoader(
 )
 
 optimizer = optim.AdamW(model.parameters(), lr=cfg.LR)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
+)
 
 if not os.path.exists(cfg.CHECKPOINT_DIR):
     os.makedirs(cfg.CHECKPOINT_DIR)
 
-# store epoch averages
+# store plotting data
 train_losses_epoch = []
 val_losses_epoch = []
-# store every single step (batch) loss
-train_losses_step = []
+tf_ratios = []
 
 
 # --- Training Loop ---
 print(f"Starting training on {cfg.DEVICE}...")
 
 for epoch in range(cfg.EPOCHS):
-    tf_ratio = cfg.TF_START - (epoch / max(1, cfg.EPOCHS - 1)) * (
-        cfg.TF_START - cfg.TF_END
-    )
-    tf_ratio = max(cfg.TF_END, tf_ratio)
+    if epoch < 0.2 * cfg.EPOCHS:
+        # warm-up phase (0-20% epochs)
+        tf_ratio = 1.0
+    elif epoch < 0.8 * cfg.EPOCHS:
+        # linear decay phase (20-80% epochs)
+        progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
+        tf_ratio = 1.0 - progress
+    else:
+        # final phase without teacher forcing (80-100% epochs)
+        tf_ratio = 0.0
 
-    print(f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f}")
+    print(
+        f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
+    )
+    tf_ratios.append(tf_ratio)
 
     # --- Training ---
     model.train()
@@ -125,14 +130,17 @@ for epoch in range(cfg.EPOCHS):
         optimizer.zero_grad()
         loss, _ = model(input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(), max_norm=1.0
+        )  # gradient clipping
         optimizer.step()
 
-        # log step loss
+        # log loss
         current_loss = loss.item()
-        train_losses_step.append(current_loss)
         total_train_loss += current_loss
-
         progress_bar.set_postfix({"loss": current_loss})
+
+    scheduler.step()
 
     avg_train_loss = total_train_loss / len(train_dataloader)
     train_losses_epoch.append(avg_train_loss)
@@ -161,7 +169,7 @@ for epoch in range(cfg.EPOCHS):
         trainable_state_dict,
         os.path.join(cfg.CHECKPOINT_DIR, f"trained_params_ep{epoch+1}.pt"),
     )
-    save_history(epoch + 1, train_losses_epoch, val_losses_epoch, train_losses_step)
-    plot_losses(train_losses_step, train_losses_epoch, val_losses_epoch)
+    save_history(epoch + 1, train_losses_epoch, val_losses_epoch, tf_ratios)
+    plot_losses(train_losses_epoch, val_losses_epoch, tf_ratios)
 
 print("Training complete.")
