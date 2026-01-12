@@ -34,7 +34,7 @@ def generate(prompt: str):
 
     # returns tensor of shape (1, Seq_Len, Motion_Dim)
     with torch.no_grad():
-        generated_motion = model.generate(prompt, max_new_tokens=120)
+        generated_motion = model.generate(prompt)
 
     # remove batch dimension -> (Seq_Len, Motion_Dim)
     y_pred = generated_motion[0].cpu().numpy()
