@@ -20,5 +20,6 @@ EPOCHS = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # inference
-INFERENCE_MODEL_PATH = "pretrained/trained_params_ep69.pt"
+INFERENCE_MODEL_PATH = "pretrained/8_trained_params_ep60.pt"
+INFERENCE_MODEL_EPOCH = 60
 OUTPUT_PATH = "output/motion.gif"

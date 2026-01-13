@@ -4,6 +4,7 @@ import config as cfg
 import numpy as np
 import torch
 from model import MotionQwen
+from train import validate_visual
 from visualization.visualization import visualize_transformer_motion
 
 
@@ -45,9 +46,35 @@ def generate(prompt: str):
     visualize_transformer_motion(y_pred_denorm, prompt)
 
 
+def generate_val_motions(epoch: int = cfg.INFERENCE_MODEL_EPOCH):
+    """
+    generates and visualizes motions for test prompts.
+    Arg:
+        epoch: current epoch number
+    """
+    print("generating validation motion with model:", cfg.INFERENCE_MODEL_PATH)
+    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+    missing_keys, unexpected_keys = model.load_state_dict(
+        torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False
+    )
+
+    # safety check if all critical modules are loaded
+    critical_modules = ["motion_encoder", "motion_decoder", "lora_A", "lora_B"]
+    for key in missing_keys:
+        for critical in critical_modules:
+            if critical in key:
+                print(f"WARNING: Critical key not loaded: {key}")
+
+    model.to(cfg.DEVICE)
+
+    model.eval()
+    validate_visual(model, epoch, "output/visualizations")
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         prompt = sys.argv[1]
         generate(prompt)
     else:
-        print("No prompt provided.")
+        print("No prompt provided. Generating default validation motions...")
+        generate_val_motions()

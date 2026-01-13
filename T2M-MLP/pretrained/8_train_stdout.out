@@ -1,0 +1,157 @@
+JobId=2292453 JobName=T2M-MLP-training
+   UserId=mot470(5159) GroupId=martius(4062) MCS_label=N/A
+   Priority=81068 Nice=0 Account=martius QOS=normal
+   JobState=RUNNING Reason=None Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=00:00:01 TimeLimit=3-00:00:00 TimeMin=N/A
+   SubmitTime=2026-01-12T23:35:18 EligibleTime=2026-01-12T23:35:18
+   AccrueTime=2026-01-12T23:35:19
+   StartTime=2026-01-12T23:45:20 EndTime=2026-01-15T23:45:20 Deadline=N/A
+   PreemptEligibleTime=2026-01-12T23:46:20 PreemptTime=None
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-01-12T23:45:20 Scheduler=Main
+   Partition=a100-galvani AllocNode:Sid=galvani-login2:4146564
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=galvani-cn211
+   BatchHost=galvani-cn211
+   NumNodes=1 NumCPUs=8 NumTasks=1 CPUs/Task=8 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=8,mem=40G,node=1,billing=11,gres/gpu=1
+   AllocTRES=cpu=8,mem=40G,node=1,billing=11,gres/gpu=1,gres/gpu:a100=1
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   MinCPUsNode=8 MinMemoryNode=40G MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/mlcloud-scripts/train.sh
+   WorkDir=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP
+   StdErr=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_errors.err
+   StdIn=/dev/null
+   StdOut=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_stdout.out
+   TresPerNode=gres/gpu:1
+   TresPerTask=cpu=8
+   MailUser=samuel.hempelmann@student.uni-tuebingen.de MailType=INVALID_DEPEND,BEGIN,END,FAIL,REQUEUE,STAGE_OUT
+   
+
+/home/martius/mot470/Continuous-t2m/T2M-MLP
+Mon Jan 12 23:45:21 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-PCIE-40GB          On  |   00000000:81:00.0 Off |                    0 |
+| N/A   44C    P0             52W /  250W |       0MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Starting training on cuda...
+Epoch 1 | Teacher Forcing: 1.00 | LR: 0.000100
+--- Generating Visual Validation for Epoch 30 ---
+Stopping generation at step 196 with stop prob 0.9628
+Failed to generate visualization for 'a person is walking forward': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9450
+Failed to generate visualization for 'a person is dancing specifically a waltz': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.8126
+Failed to generate visualization for 'a person raises their right hand and waves': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9957
+Failed to generate visualization for 'a person walks slowly hunched over to the right.': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Epoch Done. Train: 0.0261 | Val: 0.0270
+Epoch 31 | Teacher Forcing: 0.83 | LR: 0.000081
+Epoch Done. Train: 0.0256 | Val: 0.0274
+Epoch 32 | Teacher Forcing: 0.82 | LR: 0.000080
+Epoch Done. Train: 0.0260 | Val: 0.0275
+Epoch 33 | Teacher Forcing: 0.80 | LR: 0.000079
+Epoch Done. Train: 0.0257 | Val: 0.0280
+Epoch 34 | Teacher Forcing: 0.78 | LR: 0.000078
+Epoch Done. Train: 0.0258 | Val: 0.0271
+Epoch 35 | Teacher Forcing: 0.77 | LR: 0.000077
+Epoch Done. Train: 0.0253 | Val: 0.0266
+Epoch 36 | Teacher Forcing: 0.75 | LR: 0.000075
+Epoch Done. Train: 0.0256 | Val: 0.0261
+Epoch 37 | Teacher Forcing: 0.73 | LR: 0.000074
+Epoch Done. Train: 0.0255 | Val: 0.0274
+Epoch 38 | Teacher Forcing: 0.72 | LR: 0.000073
+Epoch Done. Train: 0.0254 | Val: 0.0266
+Epoch 39 | Teacher Forcing: 0.70 | LR: 0.000072
+Epoch Done. Train: 0.0254 | Val: 0.0262
+Epoch 40 | Teacher Forcing: 0.68 | LR: 0.000070
+--- Generating Visual Validation for Epoch 40 ---
+Stopping generation at step 82 with stop prob 0.8155
+Failed to generate visualization for 'a person is walking forward': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 79 with stop prob 0.8757
+Failed to generate visualization for 'a person is dancing specifically a waltz': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9474
+Failed to generate visualization for 'a person raises their right hand and waves': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 79 with stop prob 0.8734
+Failed to generate visualization for 'a person walks slowly hunched over to the right.': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Epoch Done. Train: 0.0249 | Val: 0.0264
+Epoch 41 | Teacher Forcing: 0.67 | LR: 0.000069
+Epoch Done. Train: 0.0251 | Val: 0.0268
+Epoch 42 | Teacher Forcing: 0.65 | LR: 0.000068
+Epoch Done. Train: 0.0249 | Val: 0.0259
+Epoch 43 | Teacher Forcing: 0.63 | LR: 0.000066
+Epoch Done. Train: 0.0248 | Val: 0.0260
+Epoch 44 | Teacher Forcing: 0.62 | LR: 0.000065
+Epoch Done. Train: 0.0246 | Val: 0.0271
+Epoch 45 | Teacher Forcing: 0.60 | LR: 0.000063
+Epoch Done. Train: 0.0242 | Val: 0.0268
+Epoch 46 | Teacher Forcing: 0.58 | LR: 0.000062
+Epoch Done. Train: 0.0240 | Val: 0.0261
+Epoch 47 | Teacher Forcing: 0.57 | LR: 0.000061
+Epoch Done. Train: 0.0239 | Val: 0.0263
+Epoch 48 | Teacher Forcing: 0.55 | LR: 0.000059
+Epoch Done. Train: 0.0236 | Val: 0.0259
+Epoch 49 | Teacher Forcing: 0.53 | LR: 0.000058
+Epoch Done. Train: 0.0234 | Val: 0.0270
+Epoch 50 | Teacher Forcing: 0.52 | LR: 0.000056
+--- Generating Visual Validation for Epoch 50 ---
+Stopping generation at step 196 with stop prob 0.9926
+Failed to generate visualization for 'a person is walking forward': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9942
+Failed to generate visualization for 'a person is dancing specifically a waltz': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9928
+Failed to generate visualization for 'a person raises their right hand and waves': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9885
+Failed to generate visualization for 'a person walks slowly hunched over to the right.': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Epoch Done. Train: 0.0234 | Val: 0.0265
+Epoch 51 | Teacher Forcing: 0.50 | LR: 0.000055
+Epoch Done. Train: 0.0234 | Val: 0.0263
+Epoch 52 | Teacher Forcing: 0.48 | LR: 0.000054
+Epoch Done. Train: 0.0233 | Val: 0.0268
+Epoch 53 | Teacher Forcing: 0.47 | LR: 0.000052
+Epoch Done. Train: 0.0229 | Val: 0.0260
+Epoch 54 | Teacher Forcing: 0.45 | LR: 0.000051
+Epoch Done. Train: 0.0225 | Val: 0.0262
+Epoch 55 | Teacher Forcing: 0.43 | LR: 0.000049
+Epoch Done. Train: 0.0226 | Val: 0.0263
+Epoch 56 | Teacher Forcing: 0.42 | LR: 0.000048
+Epoch Done. Train: 0.0227 | Val: 0.0265
+Epoch 57 | Teacher Forcing: 0.40 | LR: 0.000047
+Epoch Done. Train: 0.0218 | Val: 0.0267
+Epoch 58 | Teacher Forcing: 0.38 | LR: 0.000045
+Epoch Done. Train: 0.0219 | Val: 0.0279
+Epoch 59 | Teacher Forcing: 0.37 | LR: 0.000044
+Epoch Done. Train: 0.0215 | Val: 0.0263
+Epoch 60 | Teacher Forcing: 0.35 | LR: 0.000042
+--- Generating Visual Validation for Epoch 60 ---
+Stopping generation at step 196 with stop prob 0.9811
+Failed to generate visualization for 'a person is walking forward': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.9973
+Failed to generate visualization for 'a person is dancing specifically a waltz': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 200 with stop prob 0.9342
+Failed to generate visualization for 'a person raises their right hand and waves': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Stopping generation at step 196 with stop prob 0.8526
+Failed to generate visualization for 'a person walks slowly hunched over to the right.': FfmpegFormat.Writer._open() got an unexpected keyword argument 'loop'
+Epoch Done. Train: 0.0214 | Val: 0.0262
+Epoch 61 | Teacher Forcing: 0.33 | LR: 0.000041
+Epoch Done. Train: 0.0210 | Val: 0.0265
+Epoch 62 | Teacher Forcing: 0.32 | LR: 0.000040
+Epoch Done. Train: 0.0207 | Val: 0.0269
+Epoch 63 | Teacher Forcing: 0.30 | LR: 0.000038
