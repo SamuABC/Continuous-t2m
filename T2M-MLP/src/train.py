@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-from dataset import HumanML3DDataset
 from model import MotionQwen
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
+
+from dataset import HumanML3DDataset
 
 
 def save_history(epoch, train_ep, val_ep, tf_ratios):

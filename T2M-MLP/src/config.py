@@ -5,11 +5,9 @@ MOTION_DIM = 263
 
 # model
 BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
-STOP_PROB_THRESHOLD = 0.8
-STOP_LOSS_WEIGHT = 0.1
 
 # paths
-DATA_ROOT = "./HumanML3D"
+DATA_ROOT = "./dataset/HumanML3D"
 CHECKPOINT_DIR = "checkpoints"
 
 # training
@@ -20,6 +18,6 @@ EPOCHS = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # inference
-INFERENCE_MODEL_PATH = "pretrained/8_trained_params_ep60.pt"
-INFERENCE_MODEL_EPOCH = 60
+INFERENCE_MODEL_PATH = "pretrained/7_trained_params_ep69.pt"
+INFERENCE_MODEL_EPOCH = 69
 OUTPUT_PATH = "output/motion.gif"

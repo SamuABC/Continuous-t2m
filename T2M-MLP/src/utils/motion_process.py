@@ -1,3 +1,5 @@
+""" From T2M-GPT repo"""
+
 import torch
 from utils.quaternion import qinv, qrot, quaternion_to_cont6d
 

@@ -36,8 +36,7 @@ class MotionQwen(nn.Module):
         self.motion_decoder = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            # the last dimension is the stop logit
-            nn.Linear(hidden_dim, motion_dim + 1),
+            nn.Linear(hidden_dim, motion_dim),
         )
 
         # define start motion token
@@ -125,43 +124,15 @@ class MotionQwen(nn.Module):
         text_len = text_embeds.shape[1]
         motion_hidden_out = last_hidden_state[:, text_len:, :]
 
-        # Get raw output (B, T, motion_dim + 1)
-        prediction_raw = self.motion_decoder(motion_hidden_out)
-
-        # split: First D dims are motion, last dim is stop logit
-        predicted_motion = prediction_raw[:, :, :-1]  # (B, T, D)
-        predicted_stop_logits = prediction_raw[:, :, -1]  # (B, T)
+        predicted_motion = self.motion_decoder(motion_hidden_out)
 
         # motion loss (MSE)
         loss_fn = nn.MSELoss(reduction="none")
         loss_unreduced = loss_fn(predicted_motion, motion)
         loss_per_frame = loss_unreduced.mean(dim=-1)
-        motion_loss = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
+        loss = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
 
-        # stop signal loss (BCE)
-        # create target: 0 everywhere, 1 at the last valid frame
-        B, T = motion_mask.shape
-        stop_targets = torch.zeros((B, T), device=device)
-
-        # get lengths
-        lengths = motion_mask.sum(dim=1).long()
-
-        # safety clamp if the length is zero
-        last_indices = (lengths - 1).clamp(min=0)
-
-        # set the last valid index to 1.0
-        batch_indices = torch.arange(B, device=device)
-        stop_targets[batch_indices, last_indices] = 1.0
-
-        # calculate BCE Loss (masked to ignore padding)
-        bce_loss_fn = nn.BCEWithLogitsLoss(reduction="none")
-        stop_loss_unreduced = bce_loss_fn(predicted_stop_logits, stop_targets)
-        stop_loss = (stop_loss_unreduced * motion_mask).sum() / motion_mask.sum()
-
-        # combine losses
-        total_loss = motion_loss + (cfg.STOP_LOSS_WEIGHT * stop_loss)
-
-        return total_loss, predicted_motion
+        return loss, predicted_motion
 
     @torch.no_grad()
     def generate(self, text, max_new_tokens=200, min_new_tokens=10):
@@ -208,22 +179,9 @@ class MotionQwen(nn.Module):
 
             last_hidden_state = outputs.hidden_states[-1][:, -1:, :]
 
-            # prediction
-            pred_raw = self.motion_decoder(last_hidden_state)
-
-            # split output
-            pred_motion = pred_raw[:, :, :-1]
-            pred_stop_logit = pred_raw[:, :, -1]
+            pred_motion = self.motion_decoder(last_hidden_state)
 
             generated_frames.append(pred_motion)
-
-            # check for stop condition
-            stop_prob = torch.sigmoid(pred_stop_logit).item()
-            if stop_prob > cfg.STOP_PROB_THRESHOLD and i >= min_new_tokens:
-                print(
-                    f"Stopping generation at step {i+1} with stop prob {stop_prob:.4f}"
-                )
-                break
 
             # encode output to latent space for next step
             current_inputs_embeds = self.motion_encoder(pred_motion)
