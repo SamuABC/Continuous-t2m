@@ -12,6 +12,7 @@ class MotionQwen(nn.Module):
         # load Qwen Backbone & Tokenizer
         self.qwen = AutoModelForCausalLM.from_pretrained(base_model_id)
         self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+        self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
@@ -22,7 +23,7 @@ class MotionQwen(nn.Module):
             r=r,
             lora_alpha=lora_alpha,
             lora_dropout=0.1,
-            target_modules=["q_proj", "v_proj"],
+            target_modules="all-linear",
         )
         self.qwen = get_peft_model(self.qwen, peft_config)
 
@@ -31,6 +32,7 @@ class MotionQwen(nn.Module):
             nn.Linear(motion_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
         )
 
         self.motion_decoder = nn.Sequential(
@@ -135,7 +137,7 @@ class MotionQwen(nn.Module):
         return loss, predicted_motion
 
     @torch.no_grad()
-    def generate(self, text, max_new_tokens=200, min_new_tokens=10):
+    def generate(self, text, max_new_tokens=196, min_new_tokens=10):
         self.eval()
         device = self.qwen.device
 

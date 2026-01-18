@@ -1,9 +1,11 @@
 import os
+import re
 import warnings
 
 import config as cfg
 import numpy as np
 import torch
+from dataset import HumanML3DDataset
 from evaluation.evaluator_wrapper import EvaluatorModelWrapper
 from evaluation.get_eval_option import get_opt
 from evaluation.metrics import (
@@ -18,8 +20,6 @@ from model import MotionQwen
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from dataset import HumanML3DDataset
-
 warnings.filterwarnings("ignore")
 
 
@@ -33,7 +33,11 @@ def prepare_text_for_evaluator(raw_texts, w_vectorizer, device, max_text_len=20)
     cap_lens = []
 
     for i, text in enumerate(raw_texts):
-        text = text.replace(".", "").replace("!", "").replace("?", "").replace(",", "")
+        text = text.lower()
+        text = text.replace("-", " ")
+        text = text.replace("/", " ")
+        text = re.sub(r"[^\w\s]", "", text)
+
         words = text.split()
 
         if len(words) < max_text_len:
@@ -45,17 +49,15 @@ def prepare_text_for_evaluator(raw_texts, w_vectorizer, device, max_text_len=20)
         cap_lens.append(cap_len)
 
         for w_i, word in enumerate(words):
-            # remove '/' to not confuse the vectorizer
-            if "/" in word:
-                word = word.replace("/", "")
-                if not word:
-                    word = "unk"
-
             try:
+                # first try: normal case
                 vec, pos_vec = w_vectorizer[f"{word}/OTHER"]
             except (KeyError, ValueError):
-                # Fallback for unknown words
-                vec, pos_vec = w_vectorizer["unk/OTHER"]
+                try:
+                    vec, pos_vec = w_vectorizer[f"unk/OTHER"]
+                except:
+                    vec = np.zeros(dim_word)
+                    pos_vec = np.zeros(dim_pos)
 
             word_embeddings[i, w_i] = torch.from_numpy(vec)
             pos_one_hots[i, w_i] = torch.from_numpy(pos_vec)
@@ -199,9 +201,6 @@ def main():
         w_vectorizer = WordVectorizer(glove_root, "our_vab")
     except Exception as e:
         print(f"Error loading WordVectorizer from {glove_root}: {e}")
-        print(
-            "Please check where your 'our_vab_data.npy', 'our_vab_words.pkl' files are."
-        )
         return
 
     # --- Dataloader ---

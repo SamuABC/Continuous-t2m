@@ -8,10 +8,10 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints"
+CHECKPOINT_DIR = "checkpoints/attempt_9"
 
 # training
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
 EPOCHS = 100

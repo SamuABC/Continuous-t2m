@@ -6,57 +6,92 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+from dataset import HumanML3DDataset
+from eval import evaluation_qwen_loop
+from evaluation.evaluator_wrapper import EvaluatorModelWrapper
+from evaluation.get_eval_option import get_opt
+from evaluation.word_vectorizer import WordVectorizer
 from model import MotionQwen
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
 
-from dataset import HumanML3DDataset
 
-
-def save_history(epoch, train_ep, val_ep, tf_ratios):
-    """Saves raw data to JSON including Teacher Forcing history."""
+def save_history(epoch, train_ep, val_metrics):
+    """Saves raw data to JSON including new validation metrics."""
     data = {
         "number_of_epochs": epoch,
         "train_loss_epoch": train_ep,
-        "val_loss_epoch": val_ep,
-        "tf_ratios": tf_ratios,
+        "validation_metrics": val_metrics,  # Dict with lists for fid, div, matching, epochs
     }
-    with open(os.path.join(cfg.CHECKPOINT_DIR, "training_history.json"), "w") as f:
-        json.dump(data, f)
+    try:
+        with open(os.path.join(cfg.CHECKPOINT_DIR, "training_history.json"), "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Failed to save training history: {e}")
 
 
-def plot_losses(train_ep, val_ep, tf_ratios):
-    """Generates a plot: Epoch Loss (Top) and Teacher Forcing (Bottom)."""
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
-    epochs_range = range(1, len(train_ep) + 1)
+def plot_metrics(train_losses, val_metrics):
+    """
+    Generates a 2x2 Grid:
+    Top-Left: Train Loss
+    Top-Right: FID
+    Bottom-Left: Diversity
+    Bottom-Right: Matching
+    """
+    fig, axs = plt.subplots(2, 2, figsize=(15, 12))
 
-    # Subplot 1: Loss per Epoch
-    ax1.plot(epochs_range, train_ep, label="Train Avg", marker="o", color="blue")
-    ax1.plot(epochs_range, val_ep, label="Val Avg", marker="x", color="red")
-    ax1.set_title("Average Loss per Epoch")
-    ax1.set_xlabel("Epochs")
-    ax1.set_ylabel("Loss")
-    ax1.legend()
-    ax1.grid(True)
+    # X-Axis definitions
+    train_epochs = range(1, len(train_losses) + 1)
+    val_epochs = val_metrics["epochs"]  # Epochs where validation happened
 
-    # Subplot 2: Teacher Forcing Schedule
-    ax2.plot(
-        epochs_range,
-        tf_ratios,
-        label="Teacher Forcing Ratio",
-        marker=".",
-        color="green",
-    )
-    ax2.set_title("Teacher Forcing Schedule")
-    ax2.set_xlabel("Epochs")
-    ax2.set_ylabel("Ratio")
-    ax2.set_ylim(-0.1, 1.1)
-    ax2.legend()
-    ax2.grid(True)
+    # 1. Train Loss
+    axs[0, 0].plot(train_epochs, train_losses, label="Train Loss", color="blue")
+    axs[0, 0].set_title("Training Loss")
+    axs[0, 0].set_xlabel("Epochs")
+    axs[0, 0].set_ylabel("Loss")
+    axs[0, 0].grid(True)
+
+    # 2. FID (Lower is better)
+    if val_epochs:
+        axs[0, 1].plot(
+            val_epochs, val_metrics["fid"], label="FID", marker="o", color="red"
+        )
+    axs[0, 1].set_title("FID")
+    axs[0, 1].set_xlabel("Epochs")
+    axs[0, 1].set_ylabel("FID")
+    axs[0, 1].grid(True)
+
+    # 3. Diversity (Higher is usually better)
+    if val_epochs:
+        axs[1, 0].plot(
+            val_epochs,
+            val_metrics["diversity"],
+            label="Diversity",
+            marker="o",
+            color="green",
+        )
+    axs[1, 0].set_title("Diversity")
+    axs[1, 0].set_xlabel("Epochs")
+    axs[1, 0].set_ylabel("Score")
+    axs[1, 0].grid(True)
+
+    # 4. Matching (Higher is better)
+    if val_epochs:
+        axs[1, 1].plot(
+            val_epochs,
+            val_metrics["matching"],
+            label="Matching",
+            marker="o",
+            color="purple",
+        )
+    axs[1, 1].set_title("Matching Score")
+    axs[1, 1].set_xlabel("Epochs")
+    axs[1, 1].set_ylabel("Score")
+    axs[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "loss_plot.png"))
+    plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
     plt.close()
 
 
@@ -132,13 +167,19 @@ if __name__ == "__main__":
         optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
     )
 
+    dataset_opt_path = "checkpoints/t2m/Comp_v6_KLD01/opt.txt"
+    wrapper_opt = get_opt(dataset_opt_path, cfg.DEVICE)
+    eval_wrapper = EvaluatorModelWrapper(wrapper_opt)
+
+    glove_root = "./dataset/HumanML3D/glove"
+    w_vectorizer = WordVectorizer(glove_root, "our_vab")
+
     if not os.path.exists(cfg.CHECKPOINT_DIR):
         os.makedirs(cfg.CHECKPOINT_DIR)
 
     # store plotting data
     train_losses_epoch = []
-    val_losses_epoch = []
-    tf_ratios = []
+    val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
     # --- Training Loop ---
     print(f"Starting training on {cfg.DEVICE}...")
@@ -157,7 +198,6 @@ if __name__ == "__main__":
         print(
             f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
         )
-        tf_ratios.append(tf_ratio)
 
         # --- Training ---
         model.train()
@@ -190,26 +230,28 @@ if __name__ == "__main__":
         train_losses_epoch.append(avg_train_loss)
 
         # --- Validation ---
-        model.eval()
-        total_val_loss = 0
-        with torch.no_grad():
-            for batch in val_dataloader:
-                input_ids = batch["input_ids"].to(cfg.DEVICE)
-                motion = batch["motion"].to(cfg.DEVICE)
-                motion_mask = batch["motion_mask"].to(cfg.DEVICE)
-                loss, _ = model(input_ids, motion, motion_mask)
-                total_val_loss += loss.item()
-
-        avg_val_loss = total_val_loss / len(val_dataloader)
-        val_losses_epoch.append(avg_val_loss)
-
-        # --- Visual Validation ---
-        if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1:
+        if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
+            fid, div, top1, top2, top3, matching, multi = evaluation_qwen_loop(
+                val_dataloader, model, eval_wrapper, w_vectorizer, cfg.DEVICE
+            )
+            val_metrics["epochs"].append(epoch + 1)
+            val_metrics["fid"].append(float(fid))
+            val_metrics["diversity"].append(float(div))
+            val_metrics["matching"].append(float(matching))
+            print(
+                f"Evaluation for epoch: {epoch + 1}\n"
+                f"FID: {fid:.3f}\n"
+                f"Diversity: {div:.3f}\n"
+                f"Top1: {top1:.3f}\n"
+                f"Top2: {top2:.3f}\n"
+                f"Top3: {top3:.3f}\n"
+                f"Matching: {matching:.3f}"
+            )
             validate_visual(model, epoch + 1, cfg.CHECKPOINT_DIR + "/visualizations")
 
-        print(f"Epoch Done. Train: {avg_train_loss:.4f} | Val: {avg_val_loss:.4f}")
+        print(f"Epoch {epoch + 1} Done. Train: {avg_train_loss:.4f}")
 
-        # --- Save & Plot ---
+        # --- Save---
         trainable_state_dict = {
             k: v for k, v in model.named_parameters() if v.requires_grad
         }
@@ -217,7 +259,9 @@ if __name__ == "__main__":
             trainable_state_dict,
             os.path.join(cfg.CHECKPOINT_DIR, f"trained_params_ep{epoch+1}.pt"),
         )
-        save_history(epoch + 1, train_losses_epoch, val_losses_epoch, tf_ratios)
-        plot_losses(train_losses_epoch, val_losses_epoch, tf_ratios)
+
+        # --- Plot ---
+        save_history(epoch + 1, train_losses_epoch, val_metrics)
+        plot_metrics(train_losses_epoch, val_metrics)
 
     print("Training complete.")
