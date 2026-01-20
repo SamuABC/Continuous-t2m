@@ -127,8 +127,6 @@ def validate_visual(model, epoch, save_dir):
         "a person is walking forward, stops and waves someone with the right hand.",  # custom
     ]
 
-    print(f"--- Generating Visual Validation for Epoch {epoch} ---")
-
     mean = np.load(cfg.DATA_ROOT + "/Mean.npy")
     std = np.load(cfg.DATA_ROOT + "/Std.npy")
 
