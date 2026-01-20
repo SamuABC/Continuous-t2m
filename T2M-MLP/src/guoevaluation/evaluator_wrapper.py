@@ -1,9 +1,7 @@
-"""From text-to-motion repo"""
-
 from os.path import join as pjoin
 
-from evaluation.modules import *
-from evaluation.word_vectorizer import POS_enumerator
+from guoevaluation.modules import *
+from guoevaluation.word_vectorizer import POS_enumerator
 
 
 def build_models(opt):

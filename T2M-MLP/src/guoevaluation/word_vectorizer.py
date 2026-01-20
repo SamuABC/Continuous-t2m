@@ -1,5 +1,3 @@
-"""From text-to-motion repo"""
-
 import pickle
 from os.path import join as pjoin
 

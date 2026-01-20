@@ -1,5 +1,3 @@
-"""From text-to-motion repo"""
-
 import numpy as np
 from scipy import linalg
 

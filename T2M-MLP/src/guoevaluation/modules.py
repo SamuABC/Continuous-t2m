@@ -1,5 +1,3 @@
-"""From text-to-motion repo"""
-
 import math
 import time
 

@@ -6,15 +6,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-from dataset import HumanML3DDataset
-from eval import evaluation_qwen_loop
-from evaluation.evaluator_wrapper import EvaluatorModelWrapper
-from evaluation.get_eval_option import get_opt
-from evaluation.word_vectorizer import WordVectorizer
+from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
+from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
+from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
+from guoevaluation.get_opt import get_opt
+from matplotlib.ticker import MaxNLocator
 from model import MotionQwen
+from model_motion_loader import get_qwen_model_loader
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
+
+from dataset import HumanML3DDataset
 
 
 def save_history(epoch, train_ep, val_metrics):
@@ -26,7 +29,7 @@ def save_history(epoch, train_ep, val_metrics):
     }
     try:
         with open(os.path.join(cfg.CHECKPOINT_DIR, "training_history.json"), "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=4)
     except Exception as e:
         print(f"Failed to save training history: {e}")
 
@@ -50,6 +53,7 @@ def plot_metrics(train_losses, val_metrics):
     axs[0, 0].set_title("Training Loss")
     axs[0, 0].set_xlabel("Epochs")
     axs[0, 0].set_ylabel("Loss")
+    axs[0, 0].set_ylim(bottom=0)
     axs[0, 0].grid(True)
 
     # 2. FID (Lower is better)
@@ -60,6 +64,7 @@ def plot_metrics(train_losses, val_metrics):
     axs[0, 1].set_title("FID")
     axs[0, 1].set_xlabel("Epochs")
     axs[0, 1].set_ylabel("FID")
+    axs[0, 1].set_ylim(bottom=0)
     axs[0, 1].grid(True)
 
     # 3. Diversity (Higher is usually better)
@@ -74,6 +79,7 @@ def plot_metrics(train_losses, val_metrics):
     axs[1, 0].set_title("Diversity")
     axs[1, 0].set_xlabel("Epochs")
     axs[1, 0].set_ylabel("Score")
+    axs[1, 0].set_ylim(bottom=0)
     axs[1, 0].grid(True)
 
     # 4. Matching (Higher is better)
@@ -88,7 +94,12 @@ def plot_metrics(train_losses, val_metrics):
     axs[1, 1].set_title("Matching Score")
     axs[1, 1].set_xlabel("Epochs")
     axs[1, 1].set_ylabel("Score")
+    axs[1, 1].set_ylim(bottom=0)
     axs[1, 1].grid(True)
+
+    # force integer ticks on x-axis for all subplots
+    for ax in axs.flat:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.tight_layout()
     plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
@@ -97,18 +108,19 @@ def plot_metrics(train_losses, val_metrics):
 
 def validate_visual(model, epoch, save_dir):
     """
-    Generates and saves GIFs for fixed prompts to visually track progress.
+    Generates and saves GIFs using the first 4 prompts from the validation set.
     """
     model.eval()
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
+    print(f"--- Generating Visual Validation for Epoch {epoch} ---")
+
     test_prompts = [
-        "a person is walking forward",
-        "a person is dancing specifically a waltz",
-        "a person raises their right hand and waves",
-        "a person walks slowly hunched over to the right.",
+        "a person in a sitting position with his hands forward adjusts a steering wheel left and right.",  # val: 008646
+        "a person gets down on their hands and knees and crawls around, then gets back up.",  # val: 008859
+        "a person is walking forward, stops and waves someone with the right hand.",  # custom
     ]
 
     print(f"--- Generating Visual Validation for Epoch {epoch} ---")
@@ -152,34 +164,36 @@ if __name__ == "__main__":
         collate_fn=train_dataset.collate_fn,
     )
 
-    val_dataset = HumanML3DDataset(
-        cfg.DATA_ROOT, cfg.DATA_ROOT + "/val.txt", model.tokenizer
-    )
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=cfg.BATCH_SIZE,
-        shuffle=False,
-        collate_fn=val_dataset.collate_fn,
-    )
-
     optimizer = optim.AdamW(model.parameters(), lr=cfg.LR)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
     )
 
     dataset_opt_path = "checkpoints/t2m/Comp_v6_KLD01/opt.txt"
+    eval_split_file = "val.txt"
     wrapper_opt = get_opt(dataset_opt_path, cfg.DEVICE)
     eval_wrapper = EvaluatorModelWrapper(wrapper_opt)
 
-    glove_root = "./dataset/HumanML3D/glove"
-    w_vectorizer = WordVectorizer(glove_root, "our_vab")
+    gt_loader, gt_dataset = get_dataset_motion_loader(
+        dataset_opt_path, cfg.BATCH_SIZE, cfg.DEVICE, _split_file=eval_split_file
+    )
+    eval_log_path = os.path.join(cfg.CHECKPOINT_DIR, "eval_during_training.log")
+
+    PARAMS_DIRECTORY = os.path.join(cfg.CHECKPOINT_DIR, "trained_params")
 
     if not os.path.exists(cfg.CHECKPOINT_DIR):
         os.makedirs(cfg.CHECKPOINT_DIR)
 
+    if not os.path.exists(PARAMS_DIRECTORY):
+        os.makedirs(PARAMS_DIRECTORY)
+
     # store plotting data
     train_losses_epoch = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
+
+    # clear eval log file
+    with open(eval_log_path, "w") as f:
+        pass
 
     # --- Training Loop ---
     print(f"Starting training on {cfg.DEVICE}...")
@@ -231,23 +245,42 @@ if __name__ == "__main__":
 
         # --- Validation ---
         if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
-            fid, div, top1, top2, top3, matching, multi = evaluation_qwen_loop(
-                val_dataloader, model, eval_wrapper, w_vectorizer, cfg.DEVICE
-            )
+            print(f"--- Running Evaluation at Epoch {epoch + 1} ---")
+            model.eval()
+
+            gen_loader = get_qwen_model_loader(model, gt_loader, cfg.DEVICE)
+
+            motion_loaders = {"MotionQwen": gen_loader}
+
+            with open(eval_log_path, "a") as f:
+                print(f"Epoch {epoch+1}", file=f, flush=True)
+
+                # Matching Score & R-Precision
+                mat_score_dict, R_precision_dict, acti_dict = evaluate_matching_score(
+                    eval_wrapper, motion_loaders, f
+                )
+
+                # FID
+                fid_score_dict = evaluate_fid(eval_wrapper, gt_loader, acti_dict, f)
+
+                # Diversity
+                div_score_dict = evaluate_diversity(acti_dict, f)
+
+            current_fid = fid_score_dict["MotionQwen"]
+            current_div = div_score_dict["MotionQwen"]
+            current_match = mat_score_dict["MotionQwen"]
+
+            # Update metrics dictionary
             val_metrics["epochs"].append(epoch + 1)
-            val_metrics["fid"].append(float(fid))
-            val_metrics["diversity"].append(float(div))
-            val_metrics["matching"].append(float(matching))
-            print(
-                f"Evaluation for epoch: {epoch + 1}\n"
-                f"FID: {fid:.3f}\n"
-                f"Diversity: {div:.3f}\n"
-                f"Top1: {top1:.3f}\n"
-                f"Top2: {top2:.3f}\n"
-                f"Top3: {top3:.3f}\n"
-                f"Matching: {matching:.3f}"
-            )
+            val_metrics["fid"].append(float(current_fid))
+            val_metrics["diversity"].append(float(current_div))
+            val_metrics["matching"].append(float(current_match))
+
+            # Visual validation
             validate_visual(model, epoch + 1, cfg.CHECKPOINT_DIR + "/visualizations")
+
+            # plot
+            plot_metrics(train_losses_epoch, val_metrics)
 
         print(f"Epoch {epoch + 1} Done. Train: {avg_train_loss:.4f}")
 
@@ -257,11 +290,8 @@ if __name__ == "__main__":
         }
         torch.save(
             trainable_state_dict,
-            os.path.join(cfg.CHECKPOINT_DIR, f"trained_params_ep{epoch+1}.pt"),
+            os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
         )
-
-        # --- Plot ---
         save_history(epoch + 1, train_losses_epoch, val_metrics)
-        plot_metrics(train_losses_epoch, val_metrics)
 
     print("Training complete.")

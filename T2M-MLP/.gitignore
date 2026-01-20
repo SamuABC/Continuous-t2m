@@ -2,5 +2,6 @@ checkpoints/
 HumanML3D
 mlcloud-scripts/
 output/
+glove/
 
 __pycache__/
