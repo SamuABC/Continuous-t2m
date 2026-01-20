@@ -16,6 +16,7 @@ LR = 1e-4
 LR_MIN = 1e-5
 EPOCHS = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+LOWEST_TF_RATIO = 0.2
 
 # inference
 INFERENCE_MODEL_PATH = "checkpoints/attempt_9/trained_params_ep100.pt"  # "pretrained/7_trained_params_ep69.pt"

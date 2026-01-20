@@ -199,15 +199,16 @@ if __name__ == "__main__":
     print(f"Starting training on {cfg.DEVICE}...")
     for epoch in range(cfg.EPOCHS):
         if epoch < 0.2 * cfg.EPOCHS:
-            # warm-up phase (0-20% epochs)
+            # warm-up phase (0-20% epochs): full teacher forcing
             tf_ratio = 1.0
         elif epoch < 0.8 * cfg.EPOCHS:
             # linear decay phase (20-80% epochs)
             progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
-            tf_ratio = 1.0 - progress
+            # decay from 1.0 down to cfg.LOWEST_TF_RATIO
+            tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
         else:
-            # final phase without teacher forcing (80-100% epochs)
-            tf_ratio = 0.0
+            # final phase (80-100% epochs): hold at lowest ratio
+            tf_ratio = cfg.LOWEST_TF_RATIO
 
         print(
             f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
