@@ -12,9 +12,14 @@ class MotionQwen(nn.Module):
         # load Qwen Backbone & Tokenizer
         self.qwen = AutoModelForCausalLM.from_pretrained(base_model_id)
         self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+
+        # add a new pad token
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+            # Important: Resize token embeddings because vocab size changed
+            self.qwen.resize_token_embeddings(len(self.tokenizer))
+
         self.tokenizer.padding_side = "left"
-        if self.tokenizer.pad_token_id is None:
-            self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
         # configure LoRA
         peft_config = LoraConfig(
@@ -65,9 +70,6 @@ class MotionQwen(nn.Module):
         return self._run_forward_pass(input_ids, mixed_motion, motion_mask)
 
     def _run_forward_pass(self, input_ids, motion, motion_mask):
-        """
-        Helper method containing the core logic to avoid code duplication.
-        """
         device = input_ids.device
         B, T, D = motion.shape
 
@@ -77,55 +79,48 @@ class MotionQwen(nn.Module):
         motion_embeds = self.motion_encoder(motion)
 
         start_token = self.start_motion_token.expand(B, -1, -1)
-        # shift inputs
+        # shift motion input
         motion_input = motion_embeds[:, :-1, :]
 
         inputs_embeds = torch.cat([text_embeds, start_token, motion_input], dim=1)
 
-        # masks
-        text_mask = input_ids != self.tokenizer.pad_token_id
-        text_mask_float = text_mask.to(dtype=inputs_embeds.dtype)
-        start_mask_float = torch.ones((B, 1), device=device, dtype=inputs_embeds.dtype)
-        motion_mask_in_float = motion_mask[:, :-1].to(dtype=inputs_embeds.dtype)
+        # binary 2D attention mask
+        # Qwen automatically applies the Causal Lower-Triangular Mask on top of this.
+        text_mask = (input_ids != self.tokenizer.pad_token_id).long()
+        start_mask = torch.ones((B, 1), device=device, dtype=torch.long)
+        motion_mask_in = motion_mask[:, :-1].long()
 
-        mask_2d = torch.cat(
-            [text_mask_float, start_mask_float, motion_mask_in_float], dim=1
-        )
-        seq_len = mask_2d.shape[1]
+        attention_mask = torch.cat([text_mask, start_mask, motion_mask_in], dim=1)
 
-        causal_mask = torch.tril(torch.ones((seq_len, seq_len), device=device)).view(
-            1, 1, seq_len, seq_len
-        )
-        padding_mask = mask_2d.view(B, 1, 1, seq_len)
-        combined_mask = causal_mask * padding_mask
+        # position IDs (needed because of left padding in text)
+        text_mask_bool = text_mask.bool()
+        text_positions = (text_mask_bool.cumsum(dim=1) - 1).clamp(min=0)
 
-        min_dtype = torch.finfo(inputs_embeds.dtype).min
-        inverted_mask = (1.0 - combined_mask) * min_dtype
+        # motion starts after the last text token
+        last_text_pos = text_positions.max(dim=1, keepdim=True).values
+        start_pos = last_text_pos + 1
 
-        # position ids
-        text_positions = (text_mask.cumsum(dim=1) - 1).clamp(min=0)
-        text_lengths = text_mask.sum(dim=1, keepdim=True)
-        start_position = text_lengths
         motion_range = torch.arange(
             1, motion_input.shape[1] + 1, device=device
         ).unsqueeze(0)
-        motion_positions = start_position + motion_range
+        motion_positions = start_pos + motion_range
+
         position_ids = torch.cat(
-            [text_positions, start_position, motion_positions], dim=1
+            [text_positions, start_pos, motion_positions], dim=1
         ).long()
 
         # forward
         outputs = self.qwen(
             inputs_embeds=inputs_embeds,
-            attention_mask=inverted_mask,
+            attention_mask=attention_mask,
             position_ids=position_ids,
             output_hidden_states=True,
         )
 
+        # extract motion hidden states & decode
         last_hidden_state = outputs.hidden_states[-1]
         text_len = text_embeds.shape[1]
         motion_hidden_out = last_hidden_state[:, text_len:, :]
-
         predicted_motion = self.motion_decoder(motion_hidden_out)
 
         # motion loss (MSE)

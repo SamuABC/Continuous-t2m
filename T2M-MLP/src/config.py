@@ -11,7 +11,8 @@ DATA_ROOT = "./dataset/HumanML3D"
 CHECKPOINT_DIR = "checkpoints/attempt_10"
 
 # training
-BATCH_SIZE = 32
+TRAIN_BATCH_SIZE = 32
+EVAL_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
 EPOCHS = 100

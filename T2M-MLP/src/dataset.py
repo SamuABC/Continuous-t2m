@@ -10,9 +10,12 @@ class HumanML3DDataset(Dataset):
     def __init__(self, data_root, split_file, tokenizer, max_motion_len=196):
         self.data_root = data_root
         self.tokenizer = tokenizer
+        self.tokenizer.padding_side = "left"
         self.max_motion_len = max_motion_len
         self.mean = np.load(os.path.join(data_root, "Mean.npy"))
-        self.std = np.load(os.path.join(data_root, "Std.npy"))
+        self.std = (
+            np.load(os.path.join(data_root, "Std.npy")) + 1e-8
+        )  # add epsilon to avoid division by zero
 
         # load all sample ids
         with open(split_file, "r") as f:
@@ -56,45 +59,32 @@ class HumanML3DDataset(Dataset):
 
     def collate_fn(self, batch):
         motions = [item["motion"] for item in batch]
-        input_ids = [item["input_ids"] for item in batch]
-        attention_masks = [item["attention_mask"] for item in batch]
+        text_features = [
+            {"input_ids": item["input_ids"], "attention_mask": item["attention_mask"]}
+            for item in batch
+        ]
 
-        # pad motion
-        # returns (Batch, Max_Seq_Len, Dim)
+        # motion padding
         motions_padded = torch.nn.utils.rnn.pad_sequence(
             motions, batch_first=True, padding_value=0.0
         )
 
-        # motion mask
+        # create binary motion mask
         B, T, D = motions_padded.shape
-        motion_mask = torch.zeros((B, T), dtype=torch.float32)
+        motion_mask = torch.zeros(
+            (B, T), dtype=torch.long
+        )  # Use long/int for masks generally
+        for i, m in enumerate(motions):
+            motion_mask[i, : m.shape[0]] = 1
 
-        motion_lengths = [m.shape[0] for m in motions]
-        for i, length in enumerate(motion_lengths):
-            motion_mask[i, :length] = 1.0
-
-        # pad text input ids (left padding)
-        if self.tokenizer.pad_token_id is None:
-            pad_id = self.tokenizer.eos_token_id
-        else:
-            pad_id = self.tokenizer.pad_token_id
-
-        input_ids_flipped = [t.flip(0) for t in input_ids]
-        input_ids_padded_flipped = torch.nn.utils.rnn.pad_sequence(
-            input_ids_flipped, batch_first=True, padding_value=pad_id
+        # pad text
+        text_batch = self.tokenizer.pad(
+            text_features, padding=True, return_tensors="pt"
         )
-        input_ids_padded = input_ids_padded_flipped.flip(1)
-
-        # pad text attention masks (left padding)
-        attention_masks_flipped = [t.flip(0) for t in attention_masks]
-        attention_masks_padded_flipped = torch.nn.utils.rnn.pad_sequence(
-            attention_masks_flipped, batch_first=True, padding_value=0
-        )
-        attention_masks_padded = attention_masks_padded_flipped.flip(1)
 
         return {
             "motion": motions_padded,
-            "motion_mask": motion_mask,
-            "input_ids": input_ids_padded,
-            "attention_mask": attention_masks_padded,
+            "motion_mask": motion_mask,  # (B, Motion_Len)
+            "input_ids": text_batch["input_ids"],
+            "attention_mask": text_batch["attention_mask"],  # (B, Text_Len)
         }

@@ -10,7 +10,6 @@ from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
 from guoevaluation.get_opt import get_opt
-from matplotlib.ticker import MaxNLocator
 from model import MotionQwen
 from model_motion_loader import get_qwen_model_loader
 from torch.utils.data import DataLoader
@@ -56,18 +55,21 @@ def plot_metrics(train_losses, val_metrics):
     axs[0, 0].set_ylim(bottom=0)
     axs[0, 0].grid(True)
 
-    # 2. FID (Lower is better)
+    # 2. FID
     if val_epochs:
         axs[0, 1].plot(
             val_epochs, val_metrics["fid"], label="FID", marker="o", color="red"
         )
+    axs[0, 1].axhline(
+        y=0.0016, color="red", linestyle="--", label="Ground Truth (0.002)"
+    )
     axs[0, 1].set_title("FID")
     axs[0, 1].set_xlabel("Epochs")
     axs[0, 1].set_ylabel("FID")
     axs[0, 1].set_ylim(bottom=0)
     axs[0, 1].grid(True)
 
-    # 3. Diversity (Higher is usually better)
+    # 3. Diversity
     if val_epochs:
         axs[1, 0].plot(
             val_epochs,
@@ -76,13 +78,16 @@ def plot_metrics(train_losses, val_metrics):
             marker="o",
             color="green",
         )
+    axs[1, 0].axhline(
+        y=9.5225, color="green", linestyle="--", label="Ground Truth (9.52)"
+    )
     axs[1, 0].set_title("Diversity")
     axs[1, 0].set_xlabel("Epochs")
     axs[1, 0].set_ylabel("Score")
     axs[1, 0].set_ylim(bottom=0)
     axs[1, 0].grid(True)
 
-    # 4. Matching (Higher is better)
+    # 4. Matching
     if val_epochs:
         axs[1, 1].plot(
             val_epochs,
@@ -91,15 +96,14 @@ def plot_metrics(train_losses, val_metrics):
             marker="o",
             color="purple",
         )
+    axs[1, 1].axhline(
+        y=2.9554, color="purple", linestyle="--", label="Ground Truth (2.96)"
+    )
     axs[1, 1].set_title("Matching Score")
     axs[1, 1].set_xlabel("Epochs")
     axs[1, 1].set_ylabel("Score")
     axs[1, 1].set_ylim(bottom=0)
     axs[1, 1].grid(True)
-
-    # force integer ticks on x-axis for all subplots
-    for ax in axs.flat:
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.tight_layout()
     plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
@@ -159,7 +163,7 @@ if __name__ == "__main__":
     )
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=cfg.BATCH_SIZE,
+        batch_size=cfg.TRAIN_BATCH_SIZE,
         shuffle=True,
         collate_fn=train_dataset.collate_fn,
     )
@@ -175,7 +179,7 @@ if __name__ == "__main__":
     eval_wrapper = EvaluatorModelWrapper(wrapper_opt)
 
     gt_loader, gt_dataset = get_dataset_motion_loader(
-        dataset_opt_path, cfg.BATCH_SIZE, cfg.DEVICE, _split_file=eval_split_file
+        dataset_opt_path, cfg.EVAL_BATCH_SIZE, cfg.DEVICE, _split_file=eval_split_file
     )
     eval_log_path = os.path.join(cfg.CHECKPOINT_DIR, "eval_during_training.log")
 
@@ -244,8 +248,12 @@ if __name__ == "__main__":
         avg_train_loss = total_train_loss / len(train_dataloader)
         train_losses_epoch.append(avg_train_loss)
 
-        # --- Validation ---
-        if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
+        trainable_state_dict = {
+            k: v for k, v in model.named_parameters() if v.requires_grad
+        }
+
+        # --- Validation + model save---
+        if (epoch + 1) % 5 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
             print(f"--- Running Evaluation at Epoch {epoch + 1} ---")
             model.eval()
 
@@ -283,16 +291,21 @@ if __name__ == "__main__":
             # plot
             plot_metrics(train_losses_epoch, val_metrics)
 
-        print(f"Epoch {epoch + 1} Done. Train: {avg_train_loss:.4f}")
+            # save model params
+            torch.save(
+                trainable_state_dict,
+                os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
+            )
 
-        # --- Save---
-        trainable_state_dict = {
-            k: v for k, v in model.named_parameters() if v.requires_grad
-        }
+            # save training history
+            save_history(epoch + 1, train_losses_epoch, val_metrics)
+
+        # save latest model every epoch
         torch.save(
             trainable_state_dict,
-            os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
+            os.path.join(PARAMS_DIRECTORY, f"trained_params_latest.pt"),
         )
-        save_history(epoch + 1, train_losses_epoch, val_metrics)
+
+        print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}")
 
     print("Training complete.")
