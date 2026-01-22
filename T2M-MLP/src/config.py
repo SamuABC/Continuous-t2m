@@ -20,6 +20,6 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = 0.2
 
 # inference
-INFERENCE_MODEL_PATH = "checkpoints/attempt_9/trained_params_ep100.pt"  # "pretrained/7_trained_params_ep69.pt"
+INFERENCE_MODEL_PATH = "pretrained/10_trained_params_ep100.pt"
 INFERENCE_MODEL_EPOCH = 100
 OUTPUT_PATH = "output/motion.gif"
