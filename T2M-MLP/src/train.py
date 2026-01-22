@@ -156,6 +156,15 @@ if __name__ == "__main__":
         cfg.DEVICE
     )
 
+    # load checkpoint if continuing training
+    if cfg.CONTINUE_WITH_CHECKPOINT:
+        print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
+        model.load_state_dict(
+            torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=cfg.DEVICE),
+            strict=False,
+        )
+        print("Checkpoint loaded successfully. Continuing previous training session.")
+
     train_dataset = HumanML3DDataset(
         cfg.DATA_ROOT, cfg.DATA_ROOT + "/train.txt", model.tokenizer
     )
@@ -166,7 +175,12 @@ if __name__ == "__main__":
         collate_fn=train_dataset.collate_fn,
     )
 
-    optimizer = optim.AdamW(model.parameters(), lr=cfg.LR)
+    # start with the lowest lr if continuing training
+    if cfg.CONTINUE_WITH_CHECKPOINT:
+        optimizer = optim.AdamW(model.parameters(), lr=cfg.LR_MIN)
+    else:
+        optimizer = optim.AdamW(model.parameters(), lr=cfg.LR)
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
     )
@@ -200,17 +214,20 @@ if __name__ == "__main__":
     # --- Training Loop ---
     print(f"Starting training on {cfg.DEVICE}...")
     for epoch in range(cfg.EPOCHS):
-        if epoch < 0.2 * cfg.EPOCHS:
-            # warm-up phase (0-20% epochs): full teacher forcing
-            tf_ratio = 1.0
-        elif epoch < 0.8 * cfg.EPOCHS:
-            # linear decay phase (20-80% epochs)
-            progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
-            # decay from 1.0 down to cfg.LOWEST_TF_RATIO
-            tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
+        if cfg.CONTINUE_WITH_CHECKPOINT:
+            tf_ratio = cfg.LOWEST_TF_RATIO  # use lowest ratio when continuing training
         else:
-            # final phase (80-100% epochs): hold at lowest ratio
-            tf_ratio = cfg.LOWEST_TF_RATIO
+            if epoch < 0.2 * cfg.EPOCHS:
+                # warm-up phase (0-20% epochs): full teacher forcing
+                tf_ratio = 1.0
+            elif epoch < 0.8 * cfg.EPOCHS:
+                # linear decay phase (20-80% epochs)
+                progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
+                # decay from 1.0 down to cfg.LOWEST_TF_RATIO
+                tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
+            else:
+                # final phase (80-100% epochs): hold at lowest ratio
+                tf_ratio = cfg.LOWEST_TF_RATIO
 
         print(
             f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
