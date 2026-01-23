@@ -11,7 +11,7 @@ DATA_ROOT = "./dataset/HumanML3D"
 CHECKPOINT_DIR = "checkpoints/attempt_10_continue"
 
 # training
-CONTINUE_WITH_CHECKPOINT = True
+CONTINUE_WITH_CHECKPOINT = False
 CHECKPOINT_TO_CONTINUE_PATH = (
     "checkpoints/attempt_10/trained_params/trained_params_ep100.pt"
 )
