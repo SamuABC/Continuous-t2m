@@ -1,21 +1,24 @@
 # A Multilayer Perceptron to generate continuous motion
-This repo contains an MLP to generate motion from a previous start pose.
+This repo contains an MLP to generate motion from a previous start pose. This start pose can be randomly sampled from the HumanML3D dataset.
 
-# 1. Environment Setup
+## Environment Setup
 ```bash
 conda create -n motionmlp python=3.10
 conda activate motionmlp
 pip install -r requirements.txt
 ```
 
-# 2. Training
+# Download HumanML3D Dataset
+Download the HumanML3D dataset and place it in `./data/HumanML3D`. More detailed information about how to download the dataset can be found [here](../T2M-MLP/README.md).
+
+## Training
 To start the training, run:
 ```bash
 python3 src/train.py
 ```
 The trained weights are stored in checkpoints/
 
-# 3. Inference
+## Inference
 To generate a motion with a random starting pose from the HumanML3D Dataset, run: 
 ```bash
 python3 src/inference.py
