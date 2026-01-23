@@ -34,7 +34,6 @@ class MotionQwenLoader:
                 generated_motions = self.model.generate(
                     text_prompts,
                     max_new_tokens=current_batch_max_len,
-                    min_new_tokens=10,
                 )
 
             # return the batch with generated motions

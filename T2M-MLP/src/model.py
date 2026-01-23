@@ -54,14 +54,31 @@ class MotionQwen(nn.Module):
         self.start_motion_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
 
     def forward(self, input_ids, motion, motion_mask, teacher_forcing_ratio=1.0):
-        # standard training ( 1 pass)
-        if teacher_forcing_ratio == 1.0 or not self.training:
-            return self._run_forward_pass(input_ids, motion, motion_mask)
+        # --- Conditional Dropout ---
+        current_input_ids = input_ids.clone()
 
-        # Scheduled Sampling (2 passes)
+        if self.training and cfg.COND_DROPOUT_RATE > 0:
+            # Mask: 1 = keep, 0 = drop
+            keep_prob = 1.0 - cfg.COND_DROPOUT_RATE
+            B = input_ids.shape[0]
+            keep_mask = torch.bernoulli(
+                torch.full((B, 1), keep_prob, device=input_ids.device)
+            ).long()
+
+            # Replace text with pad_token_id where mask is 0
+            pad_token_id = self.tokenizer.pad_token_id
+            current_input_ids = input_ids * keep_mask + pad_token_id * (1 - keep_mask)
+
+        # --- Standard training --- ( 1 pass)
+        if teacher_forcing_ratio == 1.0 or not self.training:
+            return self._run_forward_pass(current_input_ids, motion, motion_mask)
+
+        # --- Scheduled Sampling --- (2 passes)
         # get predicted motion without gradient tracking
         with torch.no_grad():
-            _, predicted_motion = self._run_forward_pass(input_ids, motion, motion_mask)
+            _, _, _, predicted_motion = self._run_forward_pass(
+                current_input_ids, motion, motion_mask
+            )
 
         # mixing
         B, T, D = motion.shape
@@ -71,7 +88,7 @@ class MotionQwen(nn.Module):
 
         mixed_motion = mixing_mask * motion + (1 - mixing_mask) * predicted_motion
 
-        return self._run_forward_pass(input_ids, mixed_motion, motion_mask)
+        return self._run_forward_pass(current_input_ids, mixed_motion, motion_mask)
 
     def _run_forward_pass(self, input_ids, motion, motion_mask):
         device = input_ids.device
@@ -154,58 +171,83 @@ class MotionQwen(nn.Module):
         device = self.qwen.device
 
         # prepare text inputs
-        inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
-        input_ids = inputs.input_ids
-        attention_mask = inputs.attention_mask
+        cond_inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
+        cond_input_ids = cond_inputs.input_ids
+        cond_mask = cond_inputs.attention_mask
 
-        # get text embeddings
+        # prepare uncond inputs (all pad tokens)
+        uncond_input_ids = torch.full_like(cond_input_ids, self.tokenizer.pad_token_id)
+        uncond_mask = (uncond_input_ids != self.tokenizer.pad_token_id).long()
+
+        # get embeddings for both cond and uncond
         transformer = self.qwen.base_model.model.model
-        text_embeds = transformer.embed_tokens(input_ids)
-
-        B, L, _ = text_embeds.shape
+        B = cond_input_ids.shape[0]
         start_token = self.start_motion_token.expand(B, -1, -1)
 
-        # concat: [text, start_token]
-        current_inputs_embeds = torch.cat([text_embeds, start_token], dim=1)
+        cond_embeds = torch.cat(
+            [transformer.embed_tokens(cond_input_ids), start_token], dim=1
+        )
+        uncond_embeds = torch.cat(
+            [transformer.embed_tokens(uncond_input_ids), start_token], dim=1
+        )
 
-        # update attention mask for start token (add 1s to the right)
-        start_mask = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
-        attention_mask = torch.cat([attention_mask, start_mask], dim=1)
+        # extend attention masks with start token
+        start_mask = torch.ones((B, 1), device=device, dtype=torch.long)
+        cond_att_mask = torch.cat([cond_mask, start_mask], dim=1)
+        uncond_att_mask = torch.cat([uncond_mask, start_mask], dim=1)
 
-        # get position ids of valid tokens (0-based indexing)
-        position_ids = (attention_mask.cumsum(dim=1) - 1).clamp(min=0)
+        # position ids
+        cond_pos_ids = (cond_att_mask.cumsum(dim=1) - 1).clamp(min=0)
+        uncond_pos_ids = (uncond_att_mask.cumsum(dim=1) - 1).clamp(min=0)
 
-        past_key_values = DynamicCache()
+        past_kv_cond = DynamicCache()
+        past_kv_uncond = DynamicCache()
         generated_frames = []
 
-        # generation loop
         for i in range(max_new_tokens):
-            outputs = self.qwen(
-                inputs_embeds=current_inputs_embeds,
-                past_key_values=past_key_values,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
+            # conditional pass
+            out_cond = self.qwen(
+                inputs_embeds=cond_embeds,
+                past_key_values=past_kv_cond,
+                attention_mask=cond_att_mask,
+                position_ids=cond_pos_ids,
                 use_cache=True,
                 output_hidden_states=True,
             )
+            past_kv_cond = out_cond.past_key_values
+            hidden_cond = out_cond.hidden_states[-1][:, -1:, :]
+            motion_cond = self.motion_decoder(hidden_cond)
 
-            past_key_values = outputs.past_key_values
+            # unconditional pass
+            out_uncond = self.qwen(
+                inputs_embeds=uncond_embeds,
+                past_key_values=past_kv_uncond,
+                attention_mask=uncond_att_mask,
+                position_ids=uncond_pos_ids,
+                use_cache=True,
+                output_hidden_states=True,
+            )
+            past_kv_uncond = out_uncond.past_key_values
+            hidden_uncond = out_uncond.hidden_states[-1][:, -1:, :]
+            motion_uncond = self.motion_decoder(hidden_uncond)
 
-            last_hidden_state = outputs.hidden_states[-1][:, -1:, :]
-
-            pred_motion = self.motion_decoder(last_hidden_state)
-
+            # classifier-free guidance scaling
+            pred_motion = motion_uncond + cfg.GUIDANCE_SCALE * (
+                motion_cond - motion_uncond
+            )
             generated_frames.append(pred_motion)
 
-            # encode output to latent space for next step
-            current_inputs_embeds = self.motion_encoder(pred_motion)
+            # prepare embeddings for next iteration
+            cond_embeds = self.motion_encoder(pred_motion)
+            uncond_embeds = self.motion_encoder(pred_motion)
 
-            # add 1 column to attention mask for the new frame
-            new_mask_col = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
-            attention_mask = torch.cat([attention_mask, new_mask_col], dim=1)
+            # update attention masks (+1 column of ones)
+            new_mask = torch.ones((B, 1), device=device, dtype=torch.long)
+            cond_att_mask = torch.cat([cond_att_mask, new_mask], dim=1)
+            uncond_att_mask = torch.cat([uncond_att_mask, new_mask], dim=1)
 
-            # update position ids (increment the last pos by 1)
-            position_ids = position_ids[:, -1:] + 1
+            # update position ids (+1)
+            cond_pos_ids = cond_pos_ids[:, -1:] + 1
+            uncond_pos_ids = uncond_pos_ids[:, -1:] + 1
 
-        full_motion = torch.cat(generated_frames, dim=1)
-        return full_motion
+        return torch.cat(generated_frames, dim=1)
