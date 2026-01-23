@@ -8,7 +8,7 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_10_continue"
+CHECKPOINT_DIR = "checkpoints/attempt_11"
 
 # training
 CONTINUE_WITH_CHECKPOINT = False

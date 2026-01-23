@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
 
 
 class MotionQwen(nn.Module):
-    def __init__(self, base_model_id, motion_dim, hidden_dim=1024, r=8, lora_alpha=32):
+    def __init__(self, base_model_id, motion_dim, hidden_dim=1024, r=32, lora_alpha=64):
         super().__init__()
 
         # load Qwen Backbone & Tokenizer
