@@ -177,9 +177,13 @@ if __name__ == "__main__":
 
     # start with the lowest lr if continuing training
     if cfg.CONTINUE_WITH_CHECKPOINT:
-        optimizer = optim.AdamW(model.parameters(), lr=cfg.LR_MIN)
+        optimizer = optim.AdamW(
+            model.parameters(), lr=cfg.LR_MIN, weight_decay=cfg.WEIGHT_DECAY
+        )
     else:
-        optimizer = optim.AdamW(model.parameters(), lr=cfg.LR)
+        optimizer = optim.AdamW(
+            model.parameters(), lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY
+        )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN

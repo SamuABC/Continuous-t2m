@@ -19,6 +19,7 @@ TRAIN_BATCH_SIZE = 32
 EVAL_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
+WEIGHT_DECAY = 1e-4
 EPOCHS = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = 0.2
