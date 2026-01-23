@@ -19,12 +19,14 @@ from visualization.visualization import visualize_transformer_motion
 from dataset import HumanML3DDataset
 
 
-def save_history(epoch, train_ep, val_metrics):
+def save_history(epoch, train_ep, train_motion_ep, train_lang_ep, val_metrics):
     """Saves raw data to JSON including new validation metrics."""
     data = {
         "number_of_epochs": epoch,
         "train_loss_epoch": train_ep,
-        "validation_metrics": val_metrics,  # Dict with lists for fid, div, matching, epochs
+        "train_loss_motion_epoch": train_motion_ep,
+        "train_loss_lang_epoch": train_lang_ep,
+        "validation_metrics": val_metrics,
     }
     try:
         with open(os.path.join(cfg.CHECKPOINT_DIR, "training_history.json"), "w") as f:
@@ -33,7 +35,7 @@ def save_history(epoch, train_ep, val_metrics):
         print(f"Failed to save training history: {e}")
 
 
-def plot_metrics(train_losses, val_metrics):
+def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metrics):
     """
     Generates a 2x2 Grid:
     Top-Left: Train Loss
@@ -48,10 +50,29 @@ def plot_metrics(train_losses, val_metrics):
     val_epochs = val_metrics["epochs"]  # Epochs where validation happened
 
     # 1. Train Loss
-    axs[0, 0].plot(train_epochs, train_losses, label="Train Loss", color="blue")
-    axs[0, 0].set_title("Training Loss")
+    axs[0, 0].plot(
+        train_epochs, train_losses, label="Total Loss", color="blue", linewidth=2
+    )
+    axs[0, 0].plot(
+        train_epochs,
+        train_losses_motion,
+        label="Motion Loss",
+        color="orange",
+        linestyle="--",
+        alpha=0.8,
+    )
+    axs[0, 0].plot(
+        train_epochs,
+        train_losses_lang,
+        label="Language Loss",
+        color="brown",
+        linestyle="--",
+        alpha=0.8,
+    )
+    axs[0, 0].set_title(f"Training Loss (Lang_lambda={cfg.LAMBDA_LANG})")
     axs[0, 0].set_xlabel("Epochs")
     axs[0, 0].set_ylabel("Loss")
+    axs[0, 0].legend()
     axs[0, 0].set_ylim(bottom=0)
     axs[0, 0].grid(True)
 
@@ -104,6 +125,11 @@ def plot_metrics(train_losses, val_metrics):
     axs[1, 1].set_ylabel("Score")
     axs[1, 1].set_ylim(bottom=0)
     axs[1, 1].grid(True)
+
+    # show x-ticks 5, 10, 15, ...
+    for ax in axs.flat:
+        xmin, xmax = ax.get_xlim()
+        ax.set_xticks(range(0, int(xmax) + 1, 5))
 
     plt.tight_layout()
     plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
@@ -209,6 +235,8 @@ if __name__ == "__main__":
 
     # store plotting data
     train_losses_epoch = []
+    train_losses_motion_epoch = []
+    train_losses_lang_epoch = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
     # clear eval log file
@@ -240,6 +268,8 @@ if __name__ == "__main__":
         # --- Training ---
         model.train()
         total_train_loss = 0
+        total_motion_loss = 0
+        total_lang_loss = 0
         progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1} [Train]")
 
         for batch in progress_bar:
@@ -248,24 +278,34 @@ if __name__ == "__main__":
             motion_mask = batch["motion_mask"].to(cfg.DEVICE)
 
             optimizer.zero_grad()
-            loss, _ = model(
+            loss_motion, loss_lang, total_loss, _ = model(
                 input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio
             )
-            loss.backward()
+            total_loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), max_norm=1.0
             )  # gradient clipping
             optimizer.step()
 
             # log loss
-            current_loss = loss.item()
+            current_loss = total_loss.item()
             total_train_loss += current_loss
+            total_motion_loss += loss_motion.item()
+            total_lang_loss += loss_lang.item()
             progress_bar.set_postfix({"loss": current_loss})
 
         scheduler.step()
 
         avg_train_loss = total_train_loss / len(train_dataloader)
+        avg_motion_loss = total_motion_loss / len(train_dataloader)
+        avg_lang_loss = total_lang_loss / len(train_dataloader)
+
         train_losses_epoch.append(avg_train_loss)
+        train_losses_motion_epoch.append(avg_motion_loss)
+        train_losses_lang_epoch.append(avg_lang_loss)
+        print(
+            f"train: {avg_train_loss:.4f} | motion: {avg_motion_loss:.4f} | lang: {avg_lang_loss:.4f}"
+        )
 
         trainable_state_dict = {
             k: v for k, v in model.named_parameters() if v.requires_grad
@@ -308,7 +348,12 @@ if __name__ == "__main__":
             validate_visual(model, epoch + 1, cfg.CHECKPOINT_DIR + "/visualizations")
 
             # plot
-            plot_metrics(train_losses_epoch, val_metrics)
+            plot_metrics(
+                train_losses_epoch,
+                train_losses_motion_epoch,
+                train_losses_lang_epoch,
+                val_metrics,
+            )
 
             # save model params
             torch.save(
@@ -317,7 +362,13 @@ if __name__ == "__main__":
             )
 
             # save training history
-            save_history(epoch + 1, train_losses_epoch, val_metrics)
+            save_history(
+                epoch + 1,
+                train_losses_epoch,
+                train_losses_motion_epoch,
+                train_losses_lang_epoch,
+                val_metrics,
+            )
 
         # save latest model every epoch
         torch.save(
@@ -325,6 +376,8 @@ if __name__ == "__main__":
             os.path.join(PARAMS_DIRECTORY, f"trained_params_latest.pt"),
         )
 
-        print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}")
+        print(
+            f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Motion Loss: {avg_motion_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
+        )
 
     print("Training complete.")

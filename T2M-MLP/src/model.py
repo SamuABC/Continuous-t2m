@@ -37,6 +37,8 @@ class MotionQwen(nn.Module):
             nn.Linear(motion_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
         )
 
@@ -44,6 +46,8 @@ class MotionQwen(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, motion_dim),
+            nn.GELU(),
+            nn.Linear(motion_dim, motion_dim),
         )
 
         # define start motion token
@@ -117,6 +121,7 @@ class MotionQwen(nn.Module):
             output_hidden_states=True,
         )
 
+        # --- Motion loss ---
         # extract motion hidden states & decode
         last_hidden_state = outputs.hidden_states[-1]
         text_len = text_embeds.shape[1]
@@ -127,9 +132,21 @@ class MotionQwen(nn.Module):
         loss_fn = nn.MSELoss(reduction="none")
         loss_unreduced = loss_fn(predicted_motion, motion)
         loss_per_frame = loss_unreduced.mean(dim=-1)
-        loss = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
+        loss_motion = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
 
-        return loss, predicted_motion
+        # --- Language loss ---
+        logits = outputs.logits
+        text_logits = logits[:, : text_len - 1, :].contiguous()
+        text_labels = input_ids[:, 1:].contiguous()
+        vocab_size = text_logits.shape[-1]
+
+        loss_lang_fn = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        loss_lang = loss_lang_fn(text_logits.view(-1, vocab_size), text_labels.view(-1))
+
+        # --- Total loss ---
+        total_loss = loss_motion + (cfg.LAMBDA_LANG * loss_lang)
+
+        return loss_motion, loss_lang, total_loss, predicted_motion
 
     @torch.no_grad()
     def generate(self, text, max_new_tokens=196, min_new_tokens=10):

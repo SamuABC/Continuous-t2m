@@ -23,6 +23,7 @@ WEIGHT_DECAY = 1e-4
 EPOCHS = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = 0.2
+LAMBDA_LANG = 0.05  # weight for language loss. Scaled down so that motion and language loss are of same scale
 
 # inference
 INFERENCE_MODEL_PATH = "pretrained/10_trained_params_ep100.pt"
