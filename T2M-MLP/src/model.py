@@ -151,6 +151,12 @@ class MotionQwen(nn.Module):
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss_motion = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
 
+        if cfg.LAMBDA_LANG == 0.0:
+            # skip language loss computation if weight is zero
+            total_loss = loss_motion
+            loss_lang = torch.tensor(-1.0, device=device)
+            return loss_motion, loss_lang, total_loss, predicted_motion
+
         # --- Language loss ---
         logits = outputs.logits
         text_logits = logits[:, : text_len - 1, :].contiguous()

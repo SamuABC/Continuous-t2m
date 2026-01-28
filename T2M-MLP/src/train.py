@@ -54,22 +54,24 @@ def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metri
     axs[0, 0].plot(
         train_epochs, train_losses, label="Total Loss", color="blue", linewidth=2
     )
-    axs[0, 0].plot(
-        train_epochs,
-        train_losses_motion,
-        label="Motion Loss",
-        color="orange",
-        linestyle="--",
-        alpha=0.8,
-    )
-    axs[0, 0].plot(
-        train_epochs,
-        train_losses_lang,
-        label="Language Loss",
-        color="brown",
-        linestyle="--",
-        alpha=0.8,
-    )
+    if cfg.LAMBDA_LANG > 0.0:
+        # only plot motion and language loss if language loss weight > 0
+        axs[0, 0].plot(
+            train_epochs,
+            train_losses_motion,
+            label="Motion Loss",
+            color="orange",
+            linestyle="--",
+            alpha=0.8,
+        )
+        axs[0, 0].plot(
+            train_epochs,
+            train_losses_lang,
+            label="Language Loss",
+            color="brown",
+            linestyle="--",
+            alpha=0.8,
+        )
     axs[0, 0].set_title(f"Training Loss (Lang_lambda={cfg.LAMBDA_LANG})")
     axs[0, 0].set_xlabel("Epochs")
     axs[0, 0].set_ylabel("Loss")
@@ -320,12 +322,13 @@ if __name__ == "__main__":
         scheduler.step()
 
         avg_train_loss = total_train_loss / len(train_dataloader)
-        avg_motion_loss = total_motion_loss / len(train_dataloader)
-        avg_lang_loss = total_lang_loss / len(train_dataloader)
-
         train_losses_epoch.append(avg_train_loss)
-        train_losses_motion_epoch.append(avg_motion_loss)
-        train_losses_lang_epoch.append(avg_lang_loss)
+
+        if cfg.LAMBDA_LANG > 0.0:
+            avg_motion_loss = total_motion_loss / len(train_dataloader)
+            avg_lang_loss = total_lang_loss / len(train_dataloader)
+            train_losses_motion_epoch.append(avg_motion_loss)
+            train_losses_lang_epoch.append(avg_lang_loss)
 
         trainable_state_dict = {
             k: v for k, v in model.named_parameters() if v.requires_grad
@@ -396,8 +399,11 @@ if __name__ == "__main__":
             os.path.join(PARAMS_DIRECTORY, f"trained_params_latest.pt"),
         )
 
-        print(
-            f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Motion Loss: {avg_motion_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
-        )
+        if cfg.LAMBDA_LANG > 0.0:
+            print(
+                f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Motion Loss: {avg_motion_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
+            )
+        else:
+            print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
 
     print("Training complete.")
