@@ -25,11 +25,16 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = (
     0.2  # teacher forcing drops from 1.0 to this value linearly during training
 )
+
+# language loss (set to 0.0 to disable language loss)
 LAMBDA_LANG = 0.05  # weight for language loss. Scaled down so that motion and language loss are of same scale
+
+# Classifier Free Guidance
+USE_CFG = True
 COND_DROPOUT_RATE = 0.1  # probability of dropping text conditioning during training
+GUIDANCE_SCALE = 2.5
 
 # inference
 INFERENCE_MODEL_PATH = "pretrained/10_trained_params_ep100.pt"
 INFERENCE_MODEL_EPOCH = 100
 OUTPUT_PATH = "output/motion.gif"
-GUIDANCE_SCALE = 2.5

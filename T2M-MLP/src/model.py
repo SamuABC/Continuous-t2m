@@ -57,7 +57,7 @@ class MotionQwen(nn.Module):
         # --- Conditional Dropout ---
         current_input_ids = input_ids.clone()
 
-        if self.training and cfg.COND_DROPOUT_RATE > 0:
+        if self.training and cfg.COND_DROPOUT_RATE > 0 and cfg.USE_CFG:
             # Mask: 1 = keep, 0 = drop
             keep_prob = 1.0 - cfg.COND_DROPOUT_RATE
             B = input_ids.shape[0]
@@ -172,7 +172,69 @@ class MotionQwen(nn.Module):
         return loss_motion, loss_lang, total_loss, predicted_motion
 
     @torch.no_grad()
-    def generate(self, text, max_new_tokens=196, min_new_tokens=10):
+    def generate_without_cfg(self, text, max_new_tokens=196):
+        self.eval()
+        device = self.qwen.device
+
+        # prepare text inputs
+        inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
+        input_ids = inputs.input_ids
+        attention_mask = inputs.attention_mask
+
+        # get text embeddings
+        transformer = self.qwen.base_model.model.model
+        text_embeds = transformer.embed_tokens(input_ids)
+
+        B, L, _ = text_embeds.shape
+        start_token = self.start_motion_token.expand(B, -1, -1)
+
+        # concat: [text, start_token]
+        current_inputs_embeds = torch.cat([text_embeds, start_token], dim=1)
+
+        # update attention mask for start token (add 1s to the right)
+        start_mask = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
+        attention_mask = torch.cat([attention_mask, start_mask], dim=1)
+
+        # get position ids of valid tokens (0-based indexing)
+        position_ids = (attention_mask.cumsum(dim=1) - 1).clamp(min=0)
+
+        past_key_values = DynamicCache()
+        generated_frames = []
+
+        # generation loop
+        for i in range(max_new_tokens):
+            outputs = self.qwen(
+                inputs_embeds=current_inputs_embeds,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                use_cache=True,
+                output_hidden_states=True,
+            )
+
+            past_key_values = outputs.past_key_values
+
+            last_hidden_state = outputs.hidden_states[-1][:, -1:, :]
+
+            pred_motion = self.motion_decoder(last_hidden_state)
+
+            generated_frames.append(pred_motion)
+
+            # encode output to latent space for next step
+            current_inputs_embeds = self.motion_encoder(pred_motion)
+
+            # add 1 column to attention mask for the new frame
+            new_mask_col = torch.ones((B, 1), device=device, dtype=attention_mask.dtype)
+            attention_mask = torch.cat([attention_mask, new_mask_col], dim=1)
+
+            # update position ids (increment the last pos by 1)
+            position_ids = position_ids[:, -1:] + 1
+
+        full_motion = torch.cat(generated_frames, dim=1)
+        return full_motion
+
+    @torch.no_grad()
+    def generate_with_cfg(self, text, max_new_tokens=196):
         self.eval()
         device = self.qwen.device
 
@@ -257,3 +319,10 @@ class MotionQwen(nn.Module):
             uncond_pos_ids = uncond_pos_ids[:, -1:] + 1
 
         return torch.cat(generated_frames, dim=1)
+
+    @torch.no_grad()
+    def generate(self, text, max_new_tokens=196):
+        if cfg.USE_CFG:
+            return self.generate_with_cfg(text, max_new_tokens)
+        else:
+            return self.generate_without_cfg(text, max_new_tokens)

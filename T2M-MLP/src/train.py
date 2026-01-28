@@ -270,6 +270,11 @@ if __name__ == "__main__":
 
     # --- Training Loop ---
     print(f"Starting training on {cfg.DEVICE}...")
+    if cfg.LAMBDA_LANG > 0.0:
+        print("Language loss enabled.")
+    if cfg.USE_CFG:
+        print("Classifier Free Guidance enabled.")
+
     for epoch in range(cfg.EPOCHS):
         if cfg.CONTINUE_WITH_CHECKPOINT:
             tf_ratio = cfg.LOWEST_TF_RATIO  # use lowest ratio when continuing training
