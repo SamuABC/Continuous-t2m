@@ -14,16 +14,9 @@ def generate(prompt: str):
     """
     print("generating motion with model:", cfg.INFERENCE_MODEL_PATH)
     model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
-    missing_keys, unexpected_keys = model.load_state_dict(
+    model.load_state_dict(
         torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False
     )
-
-    # safety check if all critical modules are loaded
-    critical_modules = ["motion_encoder", "motion_decoder", "lora_A", "lora_B"]
-    for key in missing_keys:
-        for critical in critical_modules:
-            if critical in key:
-                print(f"WARNING: Critical key not loaded: {key}")
 
     model.to(cfg.DEVICE)
 
@@ -54,16 +47,9 @@ def generate_val_motions(epoch: int = cfg.INFERENCE_MODEL_EPOCH):
     """
     print("generating validation motion with model:", cfg.INFERENCE_MODEL_PATH)
     model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
-    missing_keys, unexpected_keys = model.load_state_dict(
+    model.load_state_dict(
         torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False
     )
-
-    # safety check if all critical modules are loaded
-    critical_modules = ["motion_encoder", "motion_decoder", "lora_A", "lora_B"]
-    for key in missing_keys:
-        for critical in critical_modules:
-            if critical in key:
-                print(f"WARNING: Critical key not loaded: {key}")
 
     model.to(cfg.DEVICE)
 

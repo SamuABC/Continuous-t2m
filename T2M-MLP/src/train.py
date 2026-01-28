@@ -1,3 +1,4 @@
+import codecs
 import json
 import os
 
@@ -20,7 +21,7 @@ from dataset import HumanML3DDataset
 
 
 def save_history(epoch, train_ep, train_motion_ep, train_lang_ep, val_metrics):
-    """Saves raw data to JSON including new validation metrics."""
+    """Saves raw data to JSON."""
     data = {
         "number_of_epochs": epoch,
         "train_loss_epoch": train_ep,
@@ -138,7 +139,8 @@ def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metri
 
 def validate_visual(model, epoch, save_dir):
     """
-    Generates and saves GIFs using the first 4 prompts from the validation set.
+    Loads the first prompts directly from val.txt and test.txt files,
+    generates motion, and saves GIFs.
     """
     model.eval()
 
@@ -147,31 +149,52 @@ def validate_visual(model, epoch, save_dir):
 
     print(f"--- Generating Visual Validation for Epoch {epoch} ---")
 
-    test_prompts = [
-        "a person in a sitting position with his hands forward adjusts a steering wheel left and right.",  # val: 008646
-        "a person gets down on their hands and knees and crawls around, then gets back up.",  # val: 008859
-        "a person is walking forward, stops and waves someone with the right hand.",  # custom
-    ]
+    mean = np.load(os.path.join(cfg.DATA_ROOT, "Mean.npy"))
+    std = np.load(os.path.join(cfg.DATA_ROOT, "Std.npy"))
 
-    mean = np.load(cfg.DATA_ROOT + "/Mean.npy")
-    std = np.load(cfg.DATA_ROOT + "/Std.npy")
+    # Define splits and their corresponding file names
+    splits = {"val": "val.txt", "train": "train.txt"}
 
-    for i, prompt in enumerate(test_prompts):
+    FIRST_N = 2  # number of samples to generate per split
+
+    for split_name, filename in splits.items():
+        split_path = os.path.join(cfg.DATA_ROOT, filename)
+
         try:
-            with torch.no_grad():
-                # generate full sequence (autoregressive)
-                generated_motion = model.generate(prompt)
+            # Read all IDs and take the first 2
+            with open(split_path, "r") as f:
+                ids = [line.strip() for line in f.readlines()]
+                target_ids = ids[:FIRST_N]
 
-            # post-processing
-            motion_data = generated_motion[0].cpu().numpy()
-            motion_data = motion_data * std + mean  # denormalize
+            for i, name in enumerate(target_ids):
+                # Construct path to text file
+                text_path = os.path.join(cfg.DATA_ROOT, "texts", name + ".txt")
 
-            output_path = os.path.join(save_dir, f"ep{epoch}_sample{i}.gif")
+                # Read text (logic from HumanML3DDataset)
+                with codecs.open(text_path, "r", encoding="utf-8") as f:
+                    texts = [line.strip().split("#")[0] for line in f.readlines()]
+                    prompt = texts[0]
 
-            visualize_transformer_motion(motion_data, prompt, output_path=output_path)
+                # Generate
+                with torch.no_grad():
+                    generated_motion = model.generate(prompt)
+
+                # Post-processing
+                motion_data = generated_motion[0].cpu().numpy()
+                motion_data = motion_data * std + mean
+
+                # Output filename: e.g., ep1_val_0_000123.gif
+                out_name = f"ep{epoch}_{split_name}_{i}_{name}.gif"
+                output_path = os.path.join(save_dir, out_name)
+
+                visualize_transformer_motion(
+                    motion_data, prompt, output_path=output_path
+                )
+
+            print("visual validation motions generated")
 
         except Exception as e:
-            print(f"Failed to generate visualization for '{prompt}': {e}")
+            print(f"Error processing split {split_name}: {e}")
 
     model.train()
 
@@ -303,9 +326,6 @@ if __name__ == "__main__":
         train_losses_epoch.append(avg_train_loss)
         train_losses_motion_epoch.append(avg_motion_loss)
         train_losses_lang_epoch.append(avg_lang_loss)
-        print(
-            f"train: {avg_train_loss:.4f} | motion: {avg_motion_loss:.4f} | lang: {avg_lang_loss:.4f}"
-        )
 
         trainable_state_dict = {
             k: v for k, v in model.named_parameters() if v.requires_grad
