@@ -76,7 +76,7 @@ class MotionQwen(nn.Module):
         # --- Scheduled Sampling --- (2 passes)
         # get predicted motion without gradient tracking
         with torch.no_grad():
-            _, _, _, predicted_motion = self._run_forward_pass(
+            _, _, _, _, predicted_motion = self._run_forward_pass(
                 current_input_ids, motion, motion_mask
             )
 
@@ -145,17 +145,31 @@ class MotionQwen(nn.Module):
         motion_hidden_out = last_hidden_state[:, text_len:, :]
         predicted_motion = self.motion_decoder(motion_hidden_out)
 
-        # motion loss (MSE)
+        # position loss (MSE)
         loss_fn = nn.MSELoss(reduction="none")
         loss_unreduced = loss_fn(predicted_motion, motion)
         loss_per_frame = loss_unreduced.mean(dim=-1)
-        loss_motion = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
+        loss_pos = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
+
+        # velocity loss (MSE), calculate on frame differences
+        target_vel = motion[:, 1:] - motion[:, :-1]
+        pred_vel = predicted_motion[:, 1:] - predicted_motion[:, :-1]
+
+        # adjust mask for velocity (one frame shorter)
+        vel_mask = motion_mask[:, 1:]
+
+        loss_vel_unreduced = loss_fn(pred_vel, target_vel)
+        loss_vel_per_frame = loss_vel_unreduced.mean(dim=-1)
+        loss_vel = (loss_vel_per_frame * vel_mask).sum() / vel_mask.sum()
+
+        # weighted sum of position and velocity loss
+        loss_motion = loss_pos + (cfg.LAMBDA_VEL * loss_vel)
 
         if cfg.LAMBDA_LANG == 0.0:
             # skip language loss computation if weight is zero
             total_loss = loss_motion
             loss_lang = torch.tensor(-1.0, device=device)
-            return loss_motion, loss_lang, total_loss, predicted_motion
+            return loss_pos, loss_vel, loss_lang, total_loss, predicted_motion
 
         # --- Language loss ---
         logits = outputs.logits
@@ -169,7 +183,7 @@ class MotionQwen(nn.Module):
         # --- Total loss ---
         total_loss = loss_motion + (cfg.LAMBDA_LANG * loss_lang)
 
-        return loss_motion, loss_lang, total_loss, predicted_motion
+        return loss_pos, loss_vel, loss_lang, total_loss, predicted_motion
 
     @torch.no_grad()
     def generate_without_cfg(self, text, max_new_tokens=196):

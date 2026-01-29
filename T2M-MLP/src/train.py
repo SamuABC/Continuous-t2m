@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+from accelerate import Accelerator
 from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
@@ -20,12 +21,15 @@ from visualization.visualization import visualize_transformer_motion
 from dataset import HumanML3DDataset
 
 
-def save_history(epoch, train_ep, train_motion_ep, train_lang_ep, val_metrics):
+def save_history(
+    epoch, train_ep, train_pos_ep, train_vel_ep, train_lang_ep, val_metrics
+):
     """Saves raw data to JSON."""
     data = {
         "number_of_epochs": epoch,
         "train_loss_epoch": train_ep,
-        "train_loss_motion_epoch": train_motion_ep,
+        "train_loss_pos_epoch": train_pos_ep,
+        "train_loss_vel_epoch": train_vel_ep,
         "train_loss_lang_epoch": train_lang_ep,
         "validation_metrics": val_metrics,
     }
@@ -36,7 +40,9 @@ def save_history(epoch, train_ep, train_motion_ep, train_lang_ep, val_metrics):
         print(f"Failed to save training history: {e}")
 
 
-def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metrics):
+def plot_metrics(
+    train_losses, train_losses_pos, train_losses_vel, train_losses_lang, val_metrics
+):
     """
     Generates a 2x2 Grid:
     Top-Left: Train Loss
@@ -54,16 +60,20 @@ def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metri
     axs[0, 0].plot(
         train_epochs, train_losses, label="Total Loss", color="blue", linewidth=2
     )
+    # position and velocity losses
+    axs[0, 0].plot(
+        train_epochs, train_losses_pos, label="Pos Loss", color="orange", linestyle="--"
+    )
+    axs[0, 0].plot(
+        train_epochs,
+        train_losses_vel,
+        label="Vel Loss",
+        color="magenta",
+        linestyle="--",
+    )
+
     if cfg.LAMBDA_LANG > 0.0:
-        # only plot motion and language loss if language loss weight > 0
-        axs[0, 0].plot(
-            train_epochs,
-            train_losses_motion,
-            label="Motion Loss",
-            color="orange",
-            linestyle="--",
-            alpha=0.8,
-        )
+        # only plot language loss if language loss weight > 0
         axs[0, 0].plot(
             train_epochs,
             train_losses_lang,
@@ -130,9 +140,9 @@ def plot_metrics(train_losses, train_losses_motion, train_losses_lang, val_metri
     axs[1, 1].grid(True)
 
     # show x-ticks 5, 10, 15, ...
-    for ax in axs.flat:
-        xmin, xmax = ax.get_xlim()
-        ax.set_xticks(range(0, int(xmax) + 1, 5))
+    # for ax in axs.flat:
+    #     xmin, xmax = ax.get_xlim()
+    #     ax.set_xticks(range(0, int(xmax) + 1, 5))
 
     plt.tight_layout()
     plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
@@ -203,19 +213,21 @@ def validate_visual(model, epoch, save_dir):
 
 if __name__ == "__main__":
     # --- Setup ---
-    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM).to(
-        cfg.DEVICE
-    )
+    accelerator = Accelerator()
+    device = accelerator.device
+
+    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
 
     # load checkpoint if continuing training
     if cfg.CONTINUE_WITH_CHECKPOINT:
         print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
         model.load_state_dict(
-            torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=cfg.DEVICE),
+            torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=device),
             strict=False,
         )
         print("Checkpoint loaded successfully. Continuing previous training session.")
 
+    # data loader
     train_dataset = HumanML3DDataset(
         cfg.DATA_ROOT, cfg.DATA_ROOT + "/train.txt", model.tokenizer
     )
@@ -226,6 +238,7 @@ if __name__ == "__main__":
         collate_fn=train_dataset.collate_fn,
     )
 
+    # optimizer
     # start with the lowest lr if continuing training
     if cfg.CONTINUE_WITH_CHECKPOINT:
         optimizer = optim.AdamW(
@@ -236,179 +249,217 @@ if __name__ == "__main__":
             model.parameters(), lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY
         )
 
+    # scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
     )
 
+    # prepare with accelerator for parallel training
+    model, optimizer, train_dataloader, scheduler = accelerator.prepare(
+        model, optimizer, train_dataloader, scheduler
+    )
+
+    # eval setup
     dataset_opt_path = "checkpoints/t2m/Comp_v6_KLD01/opt.txt"
     eval_split_file = "val.txt"
-    wrapper_opt = get_opt(dataset_opt_path, cfg.DEVICE)
+    wrapper_opt = get_opt(dataset_opt_path, device)
     eval_wrapper = EvaluatorModelWrapper(wrapper_opt)
-
     gt_loader, gt_dataset = get_dataset_motion_loader(
-        dataset_opt_path, cfg.EVAL_BATCH_SIZE, cfg.DEVICE, _split_file=eval_split_file
+        dataset_opt_path, cfg.EVAL_BATCH_SIZE, device, _split_file=eval_split_file
     )
     eval_log_path = os.path.join(cfg.CHECKPOINT_DIR, "eval_during_training.log")
 
     PARAMS_DIRECTORY = os.path.join(cfg.CHECKPOINT_DIR, "trained_params")
 
-    if not os.path.exists(cfg.CHECKPOINT_DIR):
-        os.makedirs(cfg.CHECKPOINT_DIR)
+    if accelerator.is_main_process:
+        os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
+        os.makedirs(PARAMS_DIRECTORY, exist_ok=True)
 
-    if not os.path.exists(PARAMS_DIRECTORY):
-        os.makedirs(PARAMS_DIRECTORY)
+        # clear eval log file
+        with open(eval_log_path, "w") as f:
+            pass
+
+    accelerator.wait_for_everyone()
 
     # store plotting data
     train_losses_epoch = []
-    train_losses_motion_epoch = []
+    train_losses_pos_epoch = []
+    train_losses_vel_epoch = []
     train_losses_lang_epoch = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
-    # clear eval log file
-    with open(eval_log_path, "w") as f:
-        pass
-
     # --- Training Loop ---
-    print(f"Starting training on {cfg.DEVICE}...")
-    if cfg.LAMBDA_LANG > 0.0:
-        print("Language loss enabled.")
-    if cfg.USE_CFG:
-        print("Classifier Free Guidance enabled.")
+    print(f"Starting training on {device}...")
+
+    if accelerator.is_main_process:
+        if cfg.LAMBDA_LANG > 0.0:
+            print("Language loss enabled.")
+        if cfg.USE_CFG:
+            print("Classifier Free Guidance enabled.")
 
     for epoch in range(cfg.EPOCHS):
         if cfg.CONTINUE_WITH_CHECKPOINT:
             tf_ratio = cfg.LOWEST_TF_RATIO  # use lowest ratio when continuing training
         else:
-            if epoch < 0.2 * cfg.EPOCHS:
-                # warm-up phase (0-20% epochs): full teacher forcing
+            if epoch < 0.5 * cfg.EPOCHS:
+                # warm-up phase (0-50% epochs): full teacher forcing
                 tf_ratio = 1.0
-            elif epoch < 0.8 * cfg.EPOCHS:
-                # linear decay phase (20-80% epochs)
+            elif epoch < 0.9 * cfg.EPOCHS:
+                # linear decay phase (50-90% epochs)
                 progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
                 # decay from 1.0 down to cfg.LOWEST_TF_RATIO
                 tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
             else:
-                # final phase (80-100% epochs): hold at lowest ratio
+                # final phase (90-100% epochs): hold at lowest ratio
                 tf_ratio = cfg.LOWEST_TF_RATIO
 
-        print(
-            f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
-        )
+        if accelerator.is_main_process:
+            print(
+                f"Epoch {epoch+1} | Teacher Forcing: {tf_ratio:.2f} | LR: {scheduler.get_last_lr()[0]:.6f}"
+            )
 
         # --- Training ---
         model.train()
         total_train_loss = 0
-        total_motion_loss = 0
+        total_pos_loss = 0
+        total_vel_loss = 0
         total_lang_loss = 0
-        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1} [Train]")
+        progress_bar = tqdm(
+            train_dataloader,
+            desc=f"Epoch {epoch+1} [Train]",
+            disable=not accelerator.is_main_process,
+        )
 
         for batch in progress_bar:
-            input_ids = batch["input_ids"].to(cfg.DEVICE)
-            motion = batch["motion"].to(cfg.DEVICE)
-            motion_mask = batch["motion_mask"].to(cfg.DEVICE)
+            input_ids = batch["input_ids"]
+            motion = batch["motion"]
+            motion_mask = batch["motion_mask"]
 
             optimizer.zero_grad()
-            loss_motion, loss_lang, total_loss, _ = model(
+            loss_pos, loss_vel, loss_lang, total_loss, _ = model(
                 input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio
             )
-            total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), max_norm=1.0
-            )  # gradient clipping
+            accelerator.backward(total_loss)
+            if accelerator.sync_gradients:
+                accelerator.clip_grad_norm_(
+                    model.parameters(), max_norm=1.0
+                )  # gradient clipping
+
             optimizer.step()
 
             # log loss
-            current_loss = total_loss.item()
-            total_train_loss += current_loss
-            total_motion_loss += loss_motion.item()
+            total_train_loss += total_loss.item()
+            total_pos_loss += loss_pos.item()
+            total_vel_loss += loss_vel.item()
             total_lang_loss += loss_lang.item()
-            progress_bar.set_postfix({"loss": current_loss})
+            progress_bar.set_postfix(
+                {
+                    "loss": total_loss.item(),
+                    "pos_loss": loss_pos.item(),
+                    "vel_loss": loss_vel.item(),
+                    "lang_loss": loss_lang.item(),
+                }
+            )
 
         scheduler.step()
 
+        # epoch averages
         avg_train_loss = total_train_loss / len(train_dataloader)
+        avg_pos_loss = total_pos_loss / len(train_dataloader)
+        avg_vel_loss = total_vel_loss / len(train_dataloader)
+
         train_losses_epoch.append(avg_train_loss)
+        train_losses_pos_epoch.append(avg_pos_loss)
+        train_losses_vel_epoch.append(avg_vel_loss)
 
         if cfg.LAMBDA_LANG > 0.0:
-            avg_motion_loss = total_motion_loss / len(train_dataloader)
             avg_lang_loss = total_lang_loss / len(train_dataloader)
-            train_losses_motion_epoch.append(avg_motion_loss)
             train_losses_lang_epoch.append(avg_lang_loss)
 
-        trainable_state_dict = {
-            k: v for k, v in model.named_parameters() if v.requires_grad
-        }
-
         # --- Validation + model save---
-        if (epoch + 1) % 5 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
-            print(f"--- Running Evaluation at Epoch {epoch + 1} ---")
-            model.eval()
+        if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
+            # wait for all processes
+            accelerator.wait_for_everyone()
 
-            gen_loader = get_qwen_model_loader(model, gt_loader, cfg.DEVICE)
+            # unwrap model
+            unwrapped_model = accelerator.unwrap_model(model)
 
-            motion_loaders = {"MotionQwen": gen_loader}
+            trainable_state_dict = {
+                k: v for k, v in unwrapped_model.named_parameters() if v.requires_grad
+            }
 
-            with open(eval_log_path, "a") as f:
-                print(f"Epoch {epoch+1}", file=f, flush=True)
+            if accelerator.is_main_process:
+                print(f"--- Running Evaluation at Epoch {epoch + 1} ---")
+                unwrapped_model.eval()
 
-                # Matching Score & R-Precision
-                mat_score_dict, R_precision_dict, acti_dict = evaluate_matching_score(
-                    eval_wrapper, motion_loaders, f
+                gen_loader = get_qwen_model_loader(unwrapped_model, gt_loader, device)
+
+                motion_loaders = {"MotionQwen": gen_loader}
+
+                with open(eval_log_path, "a") as f:
+                    print(f"Epoch {epoch+1}", file=f, flush=True)
+
+                    # Matching Score & R-Precision
+                    (
+                        mat_score_dict,
+                        R_precision_dict,
+                        acti_dict,
+                    ) = evaluate_matching_score(eval_wrapper, motion_loaders, f)
+
+                    # FID
+                    fid_score_dict = evaluate_fid(eval_wrapper, gt_loader, acti_dict, f)
+
+                    # Diversity
+                    div_score_dict = evaluate_diversity(acti_dict, f)
+
+                current_fid = fid_score_dict["MotionQwen"]
+                current_div = div_score_dict["MotionQwen"]
+                current_match = mat_score_dict["MotionQwen"]
+
+                # Update metrics dictionary
+                val_metrics["epochs"].append(epoch + 1)
+                val_metrics["fid"].append(float(current_fid))
+                val_metrics["diversity"].append(float(current_div))
+                val_metrics["matching"].append(float(current_match))
+
+                # Visual validation
+                validate_visual(
+                    unwrapped_model, epoch + 1, cfg.CHECKPOINT_DIR + "/visualizations"
                 )
 
-                # FID
-                fid_score_dict = evaluate_fid(eval_wrapper, gt_loader, acti_dict, f)
+                # plot
+                plot_metrics(
+                    train_losses_epoch,
+                    train_losses_pos_epoch,
+                    train_losses_vel_epoch,
+                    train_losses_lang_epoch,
+                    val_metrics,
+                )
 
-                # Diversity
-                div_score_dict = evaluate_diversity(acti_dict, f)
+                # save model params
+                torch.save(
+                    trainable_state_dict,
+                    os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
+                )
 
-            current_fid = fid_score_dict["MotionQwen"]
-            current_div = div_score_dict["MotionQwen"]
-            current_match = mat_score_dict["MotionQwen"]
+                # save training history
+                save_history(
+                    epoch + 1,
+                    train_losses_epoch,
+                    train_losses_pos_epoch,
+                    train_losses_vel_epoch,
+                    train_losses_lang_epoch,
+                    val_metrics,
+                )
 
-            # Update metrics dictionary
-            val_metrics["epochs"].append(epoch + 1)
-            val_metrics["fid"].append(float(current_fid))
-            val_metrics["diversity"].append(float(current_div))
-            val_metrics["matching"].append(float(current_match))
+            accelerator.wait_for_everyone()
 
-            # Visual validation
-            validate_visual(model, epoch + 1, cfg.CHECKPOINT_DIR + "/visualizations")
-
-            # plot
-            plot_metrics(
-                train_losses_epoch,
-                train_losses_motion_epoch,
-                train_losses_lang_epoch,
-                val_metrics,
-            )
-
-            # save model params
-            torch.save(
-                trainable_state_dict,
-                os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
-            )
-
-            # save training history
-            save_history(
-                epoch + 1,
-                train_losses_epoch,
-                train_losses_motion_epoch,
-                train_losses_lang_epoch,
-                val_metrics,
-            )
-
-        # save latest model every epoch
-        torch.save(
-            trainable_state_dict,
-            os.path.join(PARAMS_DIRECTORY, f"trained_params_latest.pt"),
-        )
-
-        if cfg.LAMBDA_LANG > 0.0:
-            print(
-                f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Motion Loss: {avg_motion_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
-            )
-        else:
-            print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
+        if accelerator.is_main_process:
+            if cfg.LAMBDA_LANG > 0.0:
+                print(
+                    f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
+                )
+            else:
+                print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
 
     print("Training complete.")
