@@ -8,7 +8,9 @@ from guoevaluation.word_vectorizer import WordVectorizer
 from torch.utils.data import DataLoader
 
 
-def get_dataset_motion_loader(opt_path, batch_size, device, _split_file="test.txt"):
+def get_dataset_motion_loader(
+    opt_path, batch_size, device, _split_file="test.txt", shuffle=True
+):
     opt = get_opt(opt_path, device)
 
     # Configurations of T2M dataset and KIT dataset is almost the same
@@ -30,7 +32,7 @@ def get_dataset_motion_loader(opt_path, batch_size, device, _split_file="test.tx
             num_workers=4,
             drop_last=True,
             collate_fn=collate_fn,
-            shuffle=True,
+            shuffle=shuffle,
         )
     else:
         raise KeyError("Dataset not Recognized !!")

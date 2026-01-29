@@ -8,7 +8,7 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_11"
+CHECKPOINT_DIR = "checkpoints/attempt_12_overfit_test"
 
 # training
 CONTINUE_WITH_CHECKPOINT = False
@@ -19,18 +19,18 @@ TRAIN_BATCH_SIZE = 32
 EVAL_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
-WEIGHT_DECAY = 1e-4
-EPOCHS = 100
+WEIGHT_DECAY = 0.0
+EPOCHS = 400
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = (
     0.2  # teacher forcing drops from 1.0 to this value linearly during training
 )
 
 # language loss (set to 0.0 to disable language loss)
-LAMBDA_LANG = 0.05  # weight for language loss. Scaled down so that motion and language loss are of same scale
+LAMBDA_LANG = 0.0  # weight for language loss
 
 # Classifier Free Guidance
-USE_CFG = True
+USE_CFG = False
 COND_DROPOUT_RATE = 0.1  # probability of dropping text conditioning during training
 GUIDANCE_SCALE = 2.5
 
