@@ -2,12 +2,14 @@ import codecs
 import json
 import os
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import config as cfg
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
@@ -159,15 +161,15 @@ def validate_visual(model, epoch, save_dir):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    print(f"--- Generating Visual Validation for Epoch {epoch} ---")
+    print(f"\n--- Generating Visual Validation for Epoch {epoch} ---")
 
     mean = np.load(os.path.join(cfg.DATA_ROOT, "Mean.npy"))
     std = np.load(os.path.join(cfg.DATA_ROOT, "Std.npy"))
 
     # Define splits and their corresponding file names
-    splits = {"val": "val.txt", "train": "train.txt"}
+    splits = {"train": "train.txt", "val": "val.txt"}
 
-    FIRST_N = 2  # number of samples to generate per split
+    FIRST_N = 3  # number of samples to generate per split
 
     for split_name, filename in splits.items():
         split_path = os.path.join(cfg.DATA_ROOT, filename)
@@ -203,17 +205,21 @@ def validate_visual(model, epoch, save_dir):
                     motion_data, prompt, output_path=output_path
                 )
 
-            print("visual validation motions generated")
-
         except Exception as e:
             print(f"Error processing split {split_name}: {e}")
+
+    print()
 
     model.train()
 
 
 if __name__ == "__main__":
     # --- Setup ---
-    accelerator = Accelerator()
+    ddp_kwargs = DistributedDataParallelKwargs(
+        find_unused_parameters=True
+    )  # ignore unused params
+
+    accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
     device = accelerator.device
 
     model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
@@ -376,6 +382,14 @@ if __name__ == "__main__":
             avg_lang_loss = total_lang_loss / len(train_dataloader)
             train_losses_lang_epoch.append(avg_lang_loss)
 
+        if accelerator.is_main_process:
+            if cfg.LAMBDA_LANG > 0.0:
+                print(
+                    f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
+                )
+            else:
+                print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
+
         # --- Validation + model save---
         if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
             # wait for all processes
@@ -389,7 +403,7 @@ if __name__ == "__main__":
             }
 
             if accelerator.is_main_process:
-                print(f"--- Running Evaluation at Epoch {epoch + 1} ---")
+                print(f"\n--- Running Evaluation at Epoch {epoch + 1} ---")
                 unwrapped_model.eval()
 
                 gen_loader = get_qwen_model_loader(unwrapped_model, gt_loader, device)
@@ -454,12 +468,5 @@ if __name__ == "__main__":
 
             accelerator.wait_for_everyone()
 
-        if accelerator.is_main_process:
-            if cfg.LAMBDA_LANG > 0.0:
-                print(
-                    f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
-                )
-            else:
-                print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
-
-    print("Training complete.")
+    if accelerator.is_main_process:
+        print("Training complete.")

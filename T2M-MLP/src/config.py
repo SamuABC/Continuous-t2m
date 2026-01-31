@@ -8,12 +8,12 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_13"
+CHECKPOINT_DIR = "checkpoints/attempt_13_con_tf_0.2"
 
 # training
-CONTINUE_WITH_CHECKPOINT = False
+CONTINUE_WITH_CHECKPOINT = True
 CHECKPOINT_TO_CONTINUE_PATH = (
-    "checkpoints/attempt_10/trained_params/trained_params_ep100.pt"
+    "checkpoints/attempt_13_con_tf_0.8/trained_params/trained_params_ep200.pt"
 )
 TRAIN_BATCH_SIZE = 32
 EVAL_BATCH_SIZE = 32
@@ -23,7 +23,7 @@ WEIGHT_DECAY = 0.0
 EPOCHS = 200
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = (
-    0.9  # teacher forcing drops from 1.0 to this value linearly during training
+    0.2  # teacher forcing drops from 1.0 to this value linearly during training
 )
 
 LAMBDA_VEL = 2.0  # weight for velocity loss
