@@ -16,6 +16,7 @@ from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
 from guoevaluation.get_opt import get_opt
 from model import MotionQwen
 from model_motion_loader import get_qwen_model_loader
+from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, SequentialLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
@@ -255,9 +256,18 @@ if __name__ == "__main__":
             model.parameters(), lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY
         )
 
+    tf_decay_start = int(cfg.EPOCHS * (1 / 3))  # Start decay at 1/3
+    tf_decay_end = int(
+        cfg.EPOCHS * (5 / 6)
+    )  # End decay at 5/6 (keeping last 1/6 stable)
+
     # scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
+    scheduler1 = ConstantLR(optimizer, factor=1.0, total_iters=tf_decay_start)
+    scheduler2 = CosineAnnealingLR(
+        optimizer, T_max=cfg.EPOCHS - tf_decay_start, eta_min=cfg.LR_MIN
+    )
+    scheduler = SequentialLR(
+        optimizer, schedulers=[scheduler1, scheduler2], milestones=[tf_decay_start]
     )
 
     # prepare with accelerator for parallel training
@@ -305,18 +315,17 @@ if __name__ == "__main__":
 
     for epoch in range(cfg.EPOCHS):
         if cfg.CONTINUE_WITH_CHECKPOINT:
-            tf_ratio = cfg.LOWEST_TF_RATIO  # use lowest ratio when continuing training
+            tf_ratio = cfg.LOWEST_TF_RATIO
         else:
-            if epoch < 0.5 * cfg.EPOCHS:
-                # warm-up phase (0-50% epochs): full teacher forcing
+            if epoch < tf_decay_start:
+                # Phase 1: Stable at 1.0
                 tf_ratio = 1.0
-            elif epoch < 0.9 * cfg.EPOCHS:
-                # linear decay phase (50-90% epochs)
-                progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
-                # decay from 1.0 down to cfg.LOWEST_TF_RATIO
+            elif epoch < tf_decay_end:
+                # Phase 2: Linear decay
+                progress = (epoch - tf_decay_start) / (tf_decay_end - tf_decay_start)
                 tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
             else:
-                # final phase (90-100% epochs): hold at lowest ratio
+                # Phase 3: Stable at lowest ratio
                 tf_ratio = cfg.LOWEST_TF_RATIO
 
         if accelerator.is_main_process:
