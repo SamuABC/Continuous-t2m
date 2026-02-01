@@ -44,40 +44,53 @@ def save_history(
 
 
 def plot_metrics(
-    train_losses, train_losses_pos, train_losses_vel, train_losses_lang, val_metrics
+    train_losses,
+    train_losses_pos,
+    train_losses_vel,
+    train_losses_lang,
+    val_metrics,
+    tf_ratios,
 ):
     """
-    Generates a 2x2 Grid:
-    Top-Left: Train Loss
-    Top-Right: FID
-    Bottom-Left: Diversity
-    Bottom-Right: Matching
+    Generates a 3x2 Grid:
+    1. Total Train Loss
+    2. Component Losses (Pos, Vel, Lang)
+    3. Teacher Forcing Ratio
+    4. FID
+    5. Diversity
+    6. Matching
     """
-    fig, axs = plt.subplots(2, 2, figsize=(15, 12))
+    fig, axs = plt.subplots(3, 2, figsize=(15, 18))
 
     # X-Axis definitions
     train_epochs = range(1, len(train_losses) + 1)
-    val_epochs = val_metrics["epochs"]  # Epochs where validation happened
+    val_epochs = val_metrics["epochs"]
 
-    # 1. Train Loss
+    # --- Row 1: Losses ---
+
+    # 1. Total Loss (Alone)
     axs[0, 0].plot(
         train_epochs, train_losses, label="Total Loss", color="blue", linewidth=2
     )
-    # position and velocity losses
-    axs[0, 0].plot(
+    axs[0, 0].set_title("Total Training Loss")
+    axs[0, 0].set_xlabel("Epochs")
+    axs[0, 0].set_ylabel("Loss")
+    axs[0, 0].legend()
+    axs[0, 0].grid(True)
+
+    # 2. Component Losses
+    axs[0, 1].plot(
         train_epochs, train_losses_pos, label="Pos Loss", color="orange", linestyle="--"
     )
-    axs[0, 0].plot(
+    axs[0, 1].plot(
         train_epochs,
         train_losses_vel,
         label="Vel Loss",
         color="magenta",
         linestyle="--",
     )
-
     if cfg.LAMBDA_LANG > 0.0:
-        # only plot language loss if language loss weight > 0
-        axs[0, 0].plot(
+        axs[0, 1].plot(
             train_epochs,
             train_losses_lang,
             label="Language Loss",
@@ -85,67 +98,70 @@ def plot_metrics(
             linestyle="--",
             alpha=0.8,
         )
-    axs[0, 0].set_title(f"Training Loss (Lang_lambda={cfg.LAMBDA_LANG})")
-    axs[0, 0].set_xlabel("Epochs")
-    axs[0, 0].set_ylabel("Loss")
-    axs[0, 0].legend()
-    axs[0, 0].set_ylim(bottom=0)
-    axs[0, 0].grid(True)
-
-    # 2. FID
-    if val_epochs:
-        axs[0, 1].plot(
-            val_epochs, val_metrics["fid"], label="FID", marker="o", color="red"
-        )
-    axs[0, 1].axhline(
-        y=0.0016, color="red", linestyle="--", label="Ground Truth (0.002)"
-    )
-    axs[0, 1].set_title("FID")
+    axs[0, 1].set_title(f"Component Losses")
     axs[0, 1].set_xlabel("Epochs")
-    axs[0, 1].set_ylabel("FID")
-    axs[0, 1].set_ylim(bottom=0)
+    axs[0, 1].set_ylabel("Loss")
+    axs[0, 1].legend()
     axs[0, 1].grid(True)
 
-    # 3. Diversity
+    # --- Row 2: Hyperparams & FID ---
+
+    # 3. Teacher Forcing Ratio
+    axs[1, 0].plot(train_epochs, tf_ratios, label="TF Ratio", color="teal", linewidth=2)
+    axs[1, 0].set_title("Teacher Forcing Schedule")
+    axs[1, 0].set_xlabel("Epochs")
+    axs[1, 0].set_ylabel("Ratio")
+    axs[1, 0].set_ylim(-0.1, 1.1)
+    axs[1, 0].grid(True)
+
+    # 4. FID
     if val_epochs:
-        axs[1, 0].plot(
+        axs[1, 1].plot(
+            val_epochs, val_metrics["fid"], label="FID", marker="o", color="red"
+        )
+    axs[1, 1].axhline(
+        y=0.0016, color="red", linestyle="--", label="Ground Truth (0.002)"
+    )
+    axs[1, 1].set_title("FID (Lower is better)")
+    axs[1, 1].set_xlabel("Epochs")
+    axs[1, 1].set_ylabel("FID")
+    axs[1, 1].grid(True)
+
+    # --- Row 3: Diversity & Matching ---
+
+    # 5. Diversity
+    if val_epochs:
+        axs[2, 0].plot(
             val_epochs,
             val_metrics["diversity"],
             label="Diversity",
             marker="o",
             color="green",
         )
-    axs[1, 0].axhline(
+    axs[2, 0].axhline(
         y=9.5225, color="green", linestyle="--", label="Ground Truth (9.52)"
     )
-    axs[1, 0].set_title("Diversity")
-    axs[1, 0].set_xlabel("Epochs")
-    axs[1, 0].set_ylabel("Score")
-    axs[1, 0].set_ylim(bottom=0)
-    axs[1, 0].grid(True)
+    axs[2, 0].set_title("Diversity (Closer to GT is better)")
+    axs[2, 0].set_xlabel("Epochs")
+    axs[2, 0].set_ylabel("Score")
+    axs[2, 0].grid(True)
 
-    # 4. Matching
+    # 6. Matching
     if val_epochs:
-        axs[1, 1].plot(
+        axs[2, 1].plot(
             val_epochs,
             val_metrics["matching"],
             label="Matching",
             marker="o",
             color="purple",
         )
-    axs[1, 1].axhline(
+    axs[2, 1].axhline(
         y=2.9554, color="purple", linestyle="--", label="Ground Truth (2.96)"
     )
-    axs[1, 1].set_title("Matching Score")
-    axs[1, 1].set_xlabel("Epochs")
-    axs[1, 1].set_ylabel("Score")
-    axs[1, 1].set_ylim(bottom=0)
-    axs[1, 1].grid(True)
-
-    # show x-ticks 5, 10, 15, ...
-    # for ax in axs.flat:
-    #     xmin, xmax = ax.get_xlim()
-    #     ax.set_xticks(range(0, int(xmax) + 1, 5))
+    axs[2, 1].set_title("Matching Score (Lower is better)")
+    axs[2, 1].set_xlabel("Epochs")
+    axs[2, 1].set_ylabel("Score")
+    axs[2, 1].grid(True)
 
     plt.tight_layout()
     plt.savefig(os.path.join(cfg.CHECKPOINT_DIR, "metrics_plot.png"))
@@ -302,6 +318,7 @@ if __name__ == "__main__":
     train_losses_pos_epoch = []
     train_losses_vel_epoch = []
     train_losses_lang_epoch = []
+    tf_ratios_epoch = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
     # --- Training Loop ---
@@ -327,6 +344,8 @@ if __name__ == "__main__":
             else:
                 # Phase 3: Stable at lowest ratio
                 tf_ratio = cfg.LOWEST_TF_RATIO
+
+        tf_ratios_epoch.append(tf_ratio)
 
         if accelerator.is_main_process:
             print(
@@ -457,6 +476,7 @@ if __name__ == "__main__":
                     train_losses_vel_epoch,
                     train_losses_lang_epoch,
                     val_metrics,
+                    tf_ratios_epoch,
                 )
 
                 # save model params
