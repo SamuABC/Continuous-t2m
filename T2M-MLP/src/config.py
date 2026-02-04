@@ -11,6 +11,7 @@ DATA_ROOT = "./dataset/HumanML3D"
 CHECKPOINT_DIR = "checkpoints/attempt_14"
 
 # training
+RUN_BASELINE_LOSS_CHECK = False
 CONTINUE_WITH_CHECKPOINT = False
 CHECKPOINT_TO_CONTINUE_PATH = (
     "checkpoints/attempt_13_con_tf_0.8/trained_params/trained_params_ep200.pt"
@@ -20,15 +21,15 @@ EVAL_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
 WEIGHT_DECAY = 0.0
-EPOCHS = 300
+EPOCHS = 200
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOWEST_TF_RATIO = (
-    0.2  # teacher forcing drops from 1.0 to this value linearly during training
+    0.1  # teacher forcing drops from 1.0 to this value linearly during training
 )
 
-LAMBDA_VEL = 2.0  # weight for velocity loss
-
-# language loss (set to 0.0 to disable language loss)
+LAMBDA_VEL = 2.5  # weight for velocity loss
+LAMBDA_FOOT_SKATE = 5.0  # weight for foot contact loss
+LAMBDA_FOOT_CONTACT = 2.0  # weight for foot contact classification loss
 LAMBDA_LANG = 0.0  # weight for language loss
 
 # Classifier Free Guidance

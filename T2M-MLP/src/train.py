@@ -24,16 +24,11 @@ from visualization.visualization import visualize_transformer_motion
 from dataset import HumanML3DDataset
 
 
-def save_history(
-    epoch, train_ep, train_pos_ep, train_vel_ep, train_lang_ep, val_metrics
-):
+def save_history(epoch, loss_history_dict, val_metrics):
     """Saves raw data to JSON."""
     data = {
         "number_of_epochs": epoch,
-        "train_loss_epoch": train_ep,
-        "train_loss_pos_epoch": train_pos_ep,
-        "train_loss_vel_epoch": train_vel_ep,
-        "train_loss_lang_epoch": train_lang_ep,
+        "loss_history": loss_history_dict,
         "validation_metrics": val_metrics,
     }
     try:
@@ -43,71 +38,57 @@ def save_history(
         print(f"Failed to save training history: {e}")
 
 
-def plot_metrics(
-    train_losses,
-    train_losses_pos,
-    train_losses_vel,
-    train_losses_lang,
-    val_metrics,
-    tf_ratios,
-):
+def plot_metrics(history_dict, val_metrics, tf_ratios):
     """
-    Generates a 3x2 Grid:
-    1. Total Train Loss
-    2. Component Losses (Pos, Vel, Lang)
-    3. Teacher Forcing Ratio
-    4. FID
-    5. Diversity
-    6. Matching
+    Plots metrics
     """
     fig, axs = plt.subplots(3, 2, figsize=(15, 18))
 
-    # X-Axis definitions
-    train_epochs = range(1, len(train_losses) + 1)
+    epochs = range(1, len(history_dict["loss"]) + 1)
     val_epochs = val_metrics["epochs"]
 
     # --- Row 1: Losses ---
 
-    # 1. Total Loss (Alone)
-    axs[0, 0].plot(
-        train_epochs, train_losses, label="Total Loss", color="blue", linewidth=2
-    )
+    # 1. Total Loss
+    if "loss" in history_dict:
+        axs[0, 0].plot(
+            epochs, history_dict["loss"], label="Total Loss", color="blue", linewidth=2
+        )
     axs[0, 0].set_title("Total Training Loss")
-    axs[0, 0].set_xlabel("Epochs")
-    axs[0, 0].set_ylabel("Loss")
-    axs[0, 0].legend()
     axs[0, 0].grid(True)
+    axs[0, 0].legend()
 
     # 2. Component Losses
-    axs[0, 1].plot(
-        train_epochs, train_losses_pos, label="Pos Loss", color="orange", linestyle="--"
-    )
-    axs[0, 1].plot(
-        train_epochs,
-        train_losses_vel,
-        label="Vel Loss",
-        color="magenta",
-        linestyle="--",
-    )
-    if cfg.LAMBDA_LANG > 0.0:
+    colors = ["orange", "magenta", "brown", "cyan", "lime"]
+    color_idx = 0
+
+    for key, values in history_dict.items():
+        if key == "loss":
+            continue  # Total loss already plotted
+
+        if np.mean(values) < 0:
+            continue  # skip invalid losses
+
+        style = "--"
+        lbl = f"{key} Loss"
+
         axs[0, 1].plot(
-            train_epochs,
-            train_losses_lang,
-            label="Language Loss",
-            color="brown",
-            linestyle="--",
-            alpha=0.8,
+            epochs,
+            values,
+            label=lbl,
+            linestyle=style,
+            color=colors[color_idx % len(colors)],
         )
-    axs[0, 1].set_title(f"Component Losses")
-    axs[0, 1].set_xlabel("Epochs")
-    axs[0, 1].set_ylabel("Loss")
-    axs[0, 1].legend()
+        color_idx += 1
+
+    axs[0, 1].set_title("Component Losses")
     axs[0, 1].grid(True)
+    axs[0, 1].legend()
 
     # --- Row 2: Hyperparams & FID ---
 
     # 3. Teacher Forcing Ratio
-    axs[1, 0].plot(train_epochs, tf_ratios, label="TF Ratio", color="teal", linewidth=2)
+    axs[1, 0].plot(epochs, tf_ratios, label="TF Ratio", color="teal", linewidth=2)
     axs[1, 0].set_title("Teacher Forcing Schedule")
     axs[1, 0].set_xlabel("Epochs")
     axs[1, 0].set_ylabel("Ratio")
@@ -314,10 +295,7 @@ if __name__ == "__main__":
     accelerator.wait_for_everyone()
 
     # store plotting data
-    train_losses_epoch = []
-    train_losses_pos_epoch = []
-    train_losses_vel_epoch = []
-    train_losses_lang_epoch = []
+    loss_history_dict = {}
     tf_ratios_epoch = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
@@ -329,6 +307,50 @@ if __name__ == "__main__":
             print("Language loss enabled.")
         if cfg.USE_CFG:
             print("Classifier Free Guidance enabled.")
+
+    if cfg.RUN_BASELINE_LOSS_CHECK:
+        if accelerator.is_main_process:
+            print("\n" + "=" * 40)
+            print("--- RUNNING BASELINE LOSS CHECK (No Optimization) ---")
+            print("=" * 40)
+
+        model.train()
+        baseline_accumulators = {}
+        num_baseline_batches = 50
+        limit_batches = min(num_baseline_batches, len(train_dataloader))
+
+        with torch.no_grad():
+            check_bar = tqdm(
+                train_dataloader,
+                total=limit_batches,
+                desc="Baseline Check",
+                disable=not accelerator.is_main_process,
+            )
+
+            for i, batch in enumerate(check_bar):
+                if i >= limit_batches:
+                    break
+
+                input_ids = batch["input_ids"]
+                motion = batch["motion"]
+                motion_mask = batch["motion_mask"]
+
+                loss_logs, _, _ = model(
+                    input_ids, motion, motion_mask, teacher_forcing_ratio=1.0
+                )
+
+                for k, v in loss_logs.items():
+                    if k not in baseline_accumulators:
+                        baseline_accumulators[k] = 0.0
+                    baseline_accumulators[k] += v
+
+        if accelerator.is_main_process:
+            print("\n" + "-" * 20 + " RESULTS " + "-" * 20)
+            print(f"Mean Losses over the first {limit_batches} Batches:")
+
+            for k, v_sum in baseline_accumulators.items():
+                avg_val = v_sum / limit_batches
+                print(f"  {k:.<20}: {avg_val:.6f}")
 
     for epoch in range(cfg.EPOCHS):
         if cfg.CONTINUE_WITH_CHECKPOINT:
@@ -354,10 +376,8 @@ if __name__ == "__main__":
 
         # --- Training ---
         model.train()
-        total_train_loss = 0
-        total_pos_loss = 0
-        total_vel_loss = 0
-        total_lang_loss = 0
+        epoch_accumulators = {}
+        num_batches = len(train_dataloader)
         progress_bar = tqdm(
             train_dataloader,
             desc=f"Epoch {epoch+1} [Train]",
@@ -370,7 +390,7 @@ if __name__ == "__main__":
             motion_mask = batch["motion_mask"]
 
             optimizer.zero_grad()
-            loss_pos, loss_vel, loss_lang, total_loss, _ = model(
+            loss_logs, total_loss, _ = model(
                 input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio
             )
             accelerator.backward(total_loss)
@@ -382,41 +402,29 @@ if __name__ == "__main__":
             optimizer.step()
 
             # log loss
-            total_train_loss += total_loss.item()
-            total_pos_loss += loss_pos.item()
-            total_vel_loss += loss_vel.item()
-            total_lang_loss += loss_lang.item()
-            progress_bar.set_postfix(
-                {
-                    "loss": total_loss.item(),
-                    "pos_loss": loss_pos.item(),
-                    "vel_loss": loss_vel.item(),
-                    "lang_loss": loss_lang.item(),
-                }
-            )
+            for k, v in loss_logs.items():
+                if k not in epoch_accumulators:
+                    epoch_accumulators[k] = 0.0
+                epoch_accumulators[k] += v
+            progress_bar.set_postfix(loss_logs)
 
         scheduler.step()
 
         # epoch averages
-        avg_train_loss = total_train_loss / len(train_dataloader)
-        avg_pos_loss = total_pos_loss / len(train_dataloader)
-        avg_vel_loss = total_vel_loss / len(train_dataloader)
+        log_string = f"Epoch {epoch + 1} Done."
 
-        train_losses_epoch.append(avg_train_loss)
-        train_losses_pos_epoch.append(avg_pos_loss)
-        train_losses_vel_epoch.append(avg_vel_loss)
+        for k, v_sum in epoch_accumulators.items():
+            avg_val = v_sum / num_batches
 
-        if cfg.LAMBDA_LANG > 0.0:
-            avg_lang_loss = total_lang_loss / len(train_dataloader)
-            train_losses_lang_epoch.append(avg_lang_loss)
+            # save to history
+            if k not in loss_history_dict:
+                loss_history_dict[k] = []
+            loss_history_dict[k].append(avg_val)
+
+            log_string += f" | {k}: {avg_val:.4f}"
 
         if accelerator.is_main_process:
-            if cfg.LAMBDA_LANG > 0.0:
-                print(
-                    f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f} | Lang Loss: {avg_lang_loss:.4f}\n"
-                )
-            else:
-                print(f"Epoch {epoch + 1} Done. Train Loss: {avg_train_loss:.4f}\n")
+            print(log_string + "\n")
 
         # --- Validation + model save---
         if (epoch + 1) % 10 == 0 or epoch == cfg.EPOCHS - 1 or epoch == 0:
@@ -471,10 +479,7 @@ if __name__ == "__main__":
 
                 # plot
                 plot_metrics(
-                    train_losses_epoch,
-                    train_losses_pos_epoch,
-                    train_losses_vel_epoch,
-                    train_losses_lang_epoch,
+                    loss_history_dict,
                     val_metrics,
                     tf_ratios_epoch,
                 )
@@ -488,10 +493,7 @@ if __name__ == "__main__":
                 # save training history
                 save_history(
                     epoch + 1,
-                    train_losses_epoch,
-                    train_losses_pos_epoch,
-                    train_losses_vel_epoch,
-                    train_losses_lang_epoch,
+                    loss_history_dict,
                     val_metrics,
                 )
 

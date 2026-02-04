@@ -1,4 +1,5 @@
 import config as cfg
+import numpy as np
 import torch
 import torch.nn as nn
 from peft import LoraConfig, TaskType, get_peft_model
@@ -12,6 +13,12 @@ class MotionQwen(nn.Module):
         # load Qwen Backbone & Tokenizer
         self.qwen = AutoModelForCausalLM.from_pretrained(base_model_id)
         self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+
+        mean = torch.from_numpy(np.load(cfg.DATA_ROOT + "/Mean.npy")).float()
+        std = torch.from_numpy(np.load(cfg.DATA_ROOT + "/Std.npy")).float() + 1e-8
+
+        self.register_buffer("mean", mean)
+        self.register_buffer("std", std)
 
         # add a new pad token
         if self.tokenizer.pad_token is None:
@@ -76,7 +83,7 @@ class MotionQwen(nn.Module):
         # --- Scheduled Sampling --- (2 passes)
         # get predicted motion without gradient tracking
         with torch.no_grad():
-            _, _, _, _, predicted_motion = self._run_forward_pass(
+            _, _, predicted_motion = self._run_forward_pass(
                 current_input_ids, motion, motion_mask
             )
 
@@ -149,7 +156,7 @@ class MotionQwen(nn.Module):
         loss_fn = nn.MSELoss(reduction="none")
         loss_unreduced = loss_fn(predicted_motion, motion)
         loss_per_frame = loss_unreduced.mean(dim=-1)
-        loss_pos = (loss_per_frame * motion_mask).sum() / motion_mask.sum()
+        loss_pos = (loss_per_frame * motion_mask).sum() / (motion_mask.sum() + 1e-8)
 
         # velocity loss (MSE), calculate on frame differences
         target_vel = motion[:, 1:] - motion[:, :-1]
@@ -160,30 +167,103 @@ class MotionQwen(nn.Module):
 
         loss_vel_unreduced = loss_fn(pred_vel, target_vel)
         loss_vel_per_frame = loss_vel_unreduced.mean(dim=-1)
-        loss_vel = (loss_vel_per_frame * vel_mask).sum() / vel_mask.sum()
+        loss_vel = (loss_vel_per_frame * vel_mask).sum() / (vel_mask.sum() + 1e-8)
 
-        # weighted sum of position and velocity loss
-        loss_motion = loss_pos + (cfg.LAMBDA_VEL * loss_vel)
+        # --- Foot Contact Consistency Loss ---
+        # Indices based on HumanML3D:
+        #   Positions: 157:163 (L_Foot 157:160, R_Foot 160:163)
+        #   Contacts:  259:263
+        mean_pos_l = self.mean[..., 157:160]
+        std_pos_l = self.std[..., 157:160]
+        mean_pos_r = self.mean[..., 160:163]
+        std_pos_r = self.std[..., 160:163]
 
-        if cfg.LAMBDA_LANG == 0.0:
+        mean_cont = self.mean[..., 259:263]
+        std_cont = self.std[..., 259:263]
+
+        # 2. Foot Skate Loss
+        # Derive velocity from positions
+        pred_pos_l_norm = predicted_motion[:, :, 157:160]
+        pred_pos_r_norm = predicted_motion[:, :, 160:163]
+
+        pred_pos_l_phys = pred_pos_l_norm * std_pos_l + mean_pos_l
+        pred_pos_r_phys = pred_pos_r_norm * std_pos_r + mean_pos_r
+
+        # Calculate velocity: v[t] = p[t] - p[t-1]
+        derived_vel_l = pred_pos_l_phys[:, 1:] - pred_pos_l_phys[:, :-1]
+        derived_vel_r = pred_pos_r_phys[:, 1:] - pred_pos_r_phys[:, :-1]
+
+        derived_vel_l_mag = torch.norm(derived_vel_l, dim=-1)
+        derived_vel_r_mag = torch.norm(derived_vel_r, dim=-1)
+
+        # 3. Foot Contacts
+        pred_contact_norm = predicted_motion[:, :, 259:263]
+        pred_contact_phys = pred_contact_norm * std_cont + mean_cont
+        scale_factor = 10.0
+        contact_logits = (pred_contact_phys - 0.5) * scale_factor
+        pred_contact_prob = torch.sigmoid(contact_logits)
+
+        # Align contacts with derived velocity (remove first frame)
+        # Max over Heel/Toe for Left (0:2) and Right (2:4)
+        pred_contact_l = torch.max(pred_contact_prob[:, 1:, 0:2], dim=-1).values
+        pred_contact_r = torch.max(pred_contact_prob[:, 1:, 2:4], dim=-1).values
+
+        fc_loss_l = (derived_vel_l_mag * pred_contact_l * vel_mask).sum()
+        fc_loss_r = (derived_vel_r_mag * pred_contact_r * vel_mask).sum()
+
+        loss_fc = (fc_loss_l + fc_loss_r) / (vel_mask.sum() + 1e-8)
+
+        # 4. Foot Contact Classification Loss
+        # Create binary GT
+        gt_contacts_norm = motion[:, :, 259:263]
+        gt_contacts_phys = gt_contacts_norm * std_cont + mean_cont
+        gt_contacts_binary = (gt_contacts_phys > 0.5).float()
+
+        loss_contact_fn = nn.BCEWithLogitsLoss(reduction="none")
+        loss_contact_unreduced = loss_contact_fn(contact_logits, gt_contacts_binary)
+
+        loss_contact_per_frame = loss_contact_unreduced.mean(dim=-1)
+
+        # Apply mask
+        loss_contact_cls = (loss_contact_per_frame * motion_mask).sum() / (
+            motion_mask.sum() + 1e-8
+        )
+
+        # --- Total Motion Loss ---
+        loss_motion = (
+            loss_pos
+            + (cfg.LAMBDA_VEL * loss_vel)
+            + (cfg.LAMBDA_FOOT_SKATE * loss_fc)
+            + (cfg.LAMBDA_FOOT_CONTACT * loss_contact_cls)
+        )
+
+        if cfg.LAMBDA_LANG > 0.0:
+            # --- Language loss ---
+            logits = outputs.logits
+            text_logits = logits[:, : text_len - 1, :].contiguous()
+            text_labels = input_ids[:, 1:].contiguous()
+            vocab_size = text_logits.shape[-1]
+            loss_lang_fn = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+
+            loss_lang = loss_lang_fn(
+                text_logits.view(-1, vocab_size), text_labels.view(-1)
+            )
+            total_loss = loss_motion + (cfg.LAMBDA_LANG * loss_lang)
+        else:
             # skip language loss computation if weight is zero
-            total_loss = loss_motion
             loss_lang = torch.tensor(-1.0, device=device)
-            return loss_pos, loss_vel, loss_lang, total_loss, predicted_motion
+            total_loss = loss_motion
 
-        # --- Language loss ---
-        logits = outputs.logits
-        text_logits = logits[:, : text_len - 1, :].contiguous()
-        text_labels = input_ids[:, 1:].contiguous()
-        vocab_size = text_logits.shape[-1]
+        loss_logs = {
+            "loss": total_loss.item(),  # note: if renamed, also change in train.py
+            "pos": loss_pos.item(),
+            "vel": loss_vel.item(),
+            "foot skate": loss_fc.item(),
+            "contact": loss_contact_cls.item(),
+            "lang": loss_lang.item(),
+        }
 
-        loss_lang_fn = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
-        loss_lang = loss_lang_fn(text_logits.view(-1, vocab_size), text_labels.view(-1))
-
-        # --- Total loss ---
-        total_loss = loss_motion + (cfg.LAMBDA_LANG * loss_lang)
-
-        return loss_pos, loss_vel, loss_lang, total_loss, predicted_motion
+        return loss_logs, total_loss, predicted_motion
 
     @torch.no_grad()
     def generate_without_cfg(self, text, max_new_tokens=196):
