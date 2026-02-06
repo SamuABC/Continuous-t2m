@@ -3,15 +3,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 from peft import LoraConfig, TaskType, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, DynamicCache
 
 
-class MotionQwen(nn.Module):
-    def __init__(self, base_model_id, motion_dim, hidden_dim=1024, r=32, lora_alpha=64):
+class MotionModelCont(nn.Module):
+    def __init__(self, base_model_id, motion_dim, r=32, lora_alpha=64):
         super().__init__()
 
-        # load Qwen Backbone & Tokenizer
-        self.qwen = AutoModelForCausalLM.from_pretrained(base_model_id)
+        config = AutoConfig.from_pretrained(base_model_id)
+        hidden_dim = config.hidden_size
+
+        # load Backbone & Tokenizer
+        self.backbone = AutoModelForCausalLM.from_pretrained(
+            base_model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="eager",
+            device_map=None,
+        )
         self.tokenizer = AutoTokenizer.from_pretrained(base_model_id)
 
         mean = torch.from_numpy(np.load(cfg.DATA_ROOT + "/Mean.npy")).float()
@@ -22,9 +30,8 @@ class MotionQwen(nn.Module):
 
         # add a new pad token
         if self.tokenizer.pad_token is None:
-            self.tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
-            # Important: Resize token embeddings because vocab size changed
-            self.qwen.resize_token_embeddings(len(self.tokenizer))
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            self.backbone.config.pad_token_id = self.tokenizer.pad_token_id
 
         self.tokenizer.padding_side = "left"
 
@@ -37,7 +44,7 @@ class MotionQwen(nn.Module):
             lora_dropout=0.1,
             target_modules="all-linear",
         )
-        self.qwen = get_peft_model(self.qwen, peft_config)
+        self.backbone = get_peft_model(self.backbone, peft_config)
 
         # motion Adapter (MLP)
         self.motion_encoder = nn.Sequential(
@@ -60,9 +67,16 @@ class MotionQwen(nn.Module):
         # define start motion token
         self.start_motion_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
 
+        # cast to bfloat16 to fit to backbone's dtype
+        self.motion_encoder = self.motion_encoder.to(torch.bfloat16)
+        self.motion_decoder = self.motion_decoder.to(torch.bfloat16)
+        self.start_motion_token.data = self.start_motion_token.data.to(torch.bfloat16)
+
     def forward(self, input_ids, motion, motion_mask, teacher_forcing_ratio=1.0):
         # --- Conditional Dropout ---
         current_input_ids = input_ids.clone()
+
+        motion = motion.to(torch.bfloat16)
 
         if self.training and cfg.COND_DROPOUT_RATE > 0 and cfg.USE_CFG:
             # Mask: 1 = keep, 0 = drop
@@ -91,7 +105,7 @@ class MotionQwen(nn.Module):
         B, T, D = motion.shape
         mixing_mask = torch.bernoulli(
             torch.full((B, T, 1), teacher_forcing_ratio, device=motion.device)
-        )
+        ).to(torch.bfloat16)
 
         mixed_motion = mixing_mask * motion + (1 - mixing_mask) * predicted_motion
 
@@ -102,8 +116,10 @@ class MotionQwen(nn.Module):
         B, T, D = motion.shape
 
         # embeddings
-        transformer = self.qwen.base_model.model.model
-        text_embeds = transformer.embed_tokens(input_ids)
+        base_model = self.backbone.get_base_model()
+        input_embedding_layer = base_model.get_input_embeddings()
+
+        text_embeds = input_embedding_layer(input_ids)
         motion_embeds = self.motion_encoder(motion)
 
         start_token = self.start_motion_token.expand(B, -1, -1)
@@ -113,7 +129,6 @@ class MotionQwen(nn.Module):
         inputs_embeds = torch.cat([text_embeds, start_token, motion_input], dim=1)
 
         # binary 2D attention mask
-        # Qwen automatically applies the Causal Lower-Triangular Mask on top of this.
         text_mask = (input_ids != self.tokenizer.pad_token_id).long()
         start_mask = torch.ones((B, 1), device=device, dtype=torch.long)
         motion_mask_in = motion_mask[:, :-1].long()
@@ -138,7 +153,7 @@ class MotionQwen(nn.Module):
         ).long()
 
         # forward
-        outputs = self.qwen(
+        outputs = self.backbone(
             inputs_embeds=inputs_embeds,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -268,7 +283,7 @@ class MotionQwen(nn.Module):
     @torch.no_grad()
     def generate_without_cfg(self, text, max_new_tokens=196):
         self.eval()
-        device = self.qwen.device
+        device = self.backbone.device
 
         # prepare text inputs
         inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
@@ -276,8 +291,9 @@ class MotionQwen(nn.Module):
         attention_mask = inputs.attention_mask
 
         # get text embeddings
-        transformer = self.qwen.base_model.model.model
-        text_embeds = transformer.embed_tokens(input_ids)
+        base_model = self.backbone.get_base_model()
+        input_embedding_layer = base_model.get_input_embeddings()
+        text_embeds = input_embedding_layer(input_ids)
 
         B, L, _ = text_embeds.shape
         start_token = self.start_motion_token.expand(B, -1, -1)
@@ -297,7 +313,7 @@ class MotionQwen(nn.Module):
 
         # generation loop
         for i in range(max_new_tokens):
-            outputs = self.qwen(
+            outputs = self.backbone(
                 inputs_embeds=current_inputs_embeds,
                 past_key_values=past_key_values,
                 attention_mask=attention_mask,
@@ -315,6 +331,7 @@ class MotionQwen(nn.Module):
             generated_frames.append(pred_motion)
 
             # encode output to latent space for next step
+            pred_motion = pred_motion.to(torch.bfloat16)
             current_inputs_embeds = self.motion_encoder(pred_motion)
 
             # add 1 column to attention mask for the new frame
@@ -325,12 +342,12 @@ class MotionQwen(nn.Module):
             position_ids = position_ids[:, -1:] + 1
 
         full_motion = torch.cat(generated_frames, dim=1)
-        return full_motion
+        return full_motion.float()
 
     @torch.no_grad()
     def generate_with_cfg(self, text, max_new_tokens=196):
         self.eval()
-        device = self.qwen.device
+        device = self.backbone.device
 
         # prepare text inputs
         cond_inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
@@ -342,15 +359,17 @@ class MotionQwen(nn.Module):
         uncond_mask = (uncond_input_ids != self.tokenizer.pad_token_id).long()
 
         # get embeddings for both cond and uncond
-        transformer = self.qwen.base_model.model.model
         B = cond_input_ids.shape[0]
+
+        input_embedding_layer = self.backbone.get_input_embeddings()
+
         start_token = self.start_motion_token.expand(B, -1, -1)
 
         cond_embeds = torch.cat(
-            [transformer.embed_tokens(cond_input_ids), start_token], dim=1
+            [input_embedding_layer(cond_input_ids), start_token], dim=1
         )
         uncond_embeds = torch.cat(
-            [transformer.embed_tokens(uncond_input_ids), start_token], dim=1
+            [input_embedding_layer(uncond_input_ids), start_token], dim=1
         )
 
         # extend attention masks with start token
@@ -368,7 +387,7 @@ class MotionQwen(nn.Module):
 
         for i in range(max_new_tokens):
             # conditional pass
-            out_cond = self.qwen(
+            out_cond = self.backbone(
                 inputs_embeds=cond_embeds,
                 past_key_values=past_kv_cond,
                 attention_mask=cond_att_mask,
@@ -381,7 +400,7 @@ class MotionQwen(nn.Module):
             motion_cond = self.motion_decoder(hidden_cond)
 
             # unconditional pass
-            out_uncond = self.qwen(
+            out_uncond = self.backbone(
                 inputs_embeds=uncond_embeds,
                 past_key_values=past_kv_uncond,
                 attention_mask=uncond_att_mask,
@@ -400,6 +419,7 @@ class MotionQwen(nn.Module):
             generated_frames.append(pred_motion)
 
             # prepare embeddings for next iteration
+            pred_motion = pred_motion.to(torch.bfloat16)
             cond_embeds = self.motion_encoder(pred_motion)
             uncond_embeds = self.motion_encoder(pred_motion)
 
@@ -412,7 +432,7 @@ class MotionQwen(nn.Module):
             cond_pos_ids = cond_pos_ids[:, -1:] + 1
             uncond_pos_ids = uncond_pos_ids[:, -1:] + 1
 
-        return torch.cat(generated_frames, dim=1)
+        return torch.cat(generated_frames, dim=1).float()
 
     @torch.no_grad()
     def generate(self, text, max_new_tokens=196):

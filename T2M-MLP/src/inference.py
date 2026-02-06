@@ -3,7 +3,7 @@ import sys
 import config as cfg
 import numpy as np
 import torch
-from model import MotionQwen
+from model import MotionModelCont
 from train import validate_visual
 from visualization.visualization import visualize_transformer_motion
 
@@ -13,7 +13,7 @@ def generate(prompt: str):
     generates and visualizes a motion sequence from a text prompt
     """
     print("generating motion with model:", cfg.INFERENCE_MODEL_PATH)
-    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+    model = MotionModelCont(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
     model.load_state_dict(
         torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False
     )
@@ -46,7 +46,7 @@ def generate_val_motions(epoch: int = cfg.INFERENCE_MODEL_EPOCH):
         epoch: current epoch number
     """
     print("generating validation motion with model:", cfg.INFERENCE_MODEL_PATH)
-    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+    model = MotionModelCont(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
     model.load_state_dict(
         torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False
     )

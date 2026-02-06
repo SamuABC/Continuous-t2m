@@ -4,11 +4,11 @@ import torch
 MOTION_DIM = 263
 
 # model
-BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
+BASE_MODEL_ID = "google/gemma-2-2b"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_14"
+CHECKPOINT_DIR = "checkpoints/attempt_15"
 
 # training
 RUN_BASELINE_LOSS_CHECK = False
@@ -28,8 +28,8 @@ LOWEST_TF_RATIO = (
 )
 
 LAMBDA_VEL = 2.5  # weight for velocity loss
-LAMBDA_FOOT_SKATE = 5.0  # weight for foot contact loss
-LAMBDA_FOOT_CONTACT = 2.0  # weight for foot contact classification loss
+LAMBDA_FOOT_SKATE = 0.0  # weight for foot contact loss
+LAMBDA_FOOT_CONTACT = 0.0  # weight for foot contact classification loss
 LAMBDA_LANG = 0.0  # weight for language loss
 
 # Classifier Free Guidance

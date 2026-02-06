@@ -3,7 +3,7 @@ import os
 import config as cfg
 import torch
 import torch.optim as optim
-from model import MotionQwen
+from model import MotionModelCont
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from train import validate_visual
@@ -12,9 +12,9 @@ from dataset import HumanML3DDataset
 
 if __name__ == "__main__":
     # --- Setup ---
-    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM).to(
-        cfg.DEVICE
-    )
+    model = MotionModelCont(
+        base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM
+    ).to(cfg.DEVICE)
     assert (
         cfg.TRAIN_BATCH_SIZE == cfg.EVAL_BATCH_SIZE
     ), "train/eval batch sizes must be equal for overfit test"

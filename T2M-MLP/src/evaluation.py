@@ -15,7 +15,7 @@ from guoevaluation.metrics import *
 from guoevaluation.motion_process import *
 from guoevaluation.plot_script import *
 from guoevaluation.utils import *
-from model import MotionQwen
+from model import MotionModelCont
 from model_motion_loader import get_qwen_model_loader
 
 
@@ -338,9 +338,7 @@ if __name__ == "__main__":
     torch.cuda.set_device(device_id)
 
     # model setup
-    base_model_id = "Qwen/Qwen1.5-0.5B"
-    motion_dim = 263
-    model = MotionQwen(base_model_id, motion_dim).to(device)
+    model = MotionModelCont(cfg.BASE_MODEL_ID, cfg.MOTION_DIM).to(device)
     print("Loading model from:", cfg.INFERENCE_MODEL_PATH)
     model.load_state_dict(
         torch.load(cfg.INFERENCE_MODEL_PATH, map_location=cfg.DEVICE), strict=False

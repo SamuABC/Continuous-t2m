@@ -1,20 +1,27 @@
 import codecs
+import gc
 import json
 import os
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+from datetime import timedelta
 
 import config as cfg
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-from accelerate import Accelerator, DistributedDataParallelKwargs
+from accelerate import (
+    Accelerator,
+    DistributedDataParallelKwargs,
+    InitProcessGroupKwargs,
+)
 from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
 from guoevaluation.get_opt import get_opt
-from model import MotionQwen
+from model import MotionModelCont
 from model_motion_loader import get_qwen_model_loader
 from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, SequentialLR
 from torch.utils.data import DataLoader
@@ -217,10 +224,19 @@ if __name__ == "__main__":
         find_unused_parameters=True
     )  # ignore unused params
 
-    accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
+    # longer timeout
+    process_group_kwargs = InitProcessGroupKwargs(timeout=timedelta(minutes=120))
+
+    accelerator = Accelerator(kwargs_handlers=[ddp_kwargs, process_group_kwargs])
     device = accelerator.device
 
-    model = MotionQwen(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+    model = MotionModelCont(base_model_id=cfg.BASE_MODEL_ID, motion_dim=cfg.MOTION_DIM)
+
+    # save VRAM by enabling gradient checkpointing
+    model.backbone.gradient_checkpointing_enable(
+        gradient_checkpointing_kwargs={"use_reentrant": False}
+    )
+    model.backbone.config.use_cache = False
 
     # load checkpoint if continuing training
     if cfg.CONTINUE_WITH_CHECKPOINT:
@@ -240,6 +256,8 @@ if __name__ == "__main__":
         batch_size=cfg.TRAIN_BATCH_SIZE,
         shuffle=True,
         collate_fn=train_dataset.collate_fn,
+        num_workers=2,
+        pin_memory=True,
     )
 
     # optimizer
@@ -266,6 +284,10 @@ if __name__ == "__main__":
     scheduler = SequentialLR(
         optimizer, schedulers=[scheduler1, scheduler2], milestones=[tf_decay_start]
     )
+
+    # clear cache
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # prepare with accelerator for parallel training
     model, optimizer, train_dataloader, scheduler = accelerator.prepare(
@@ -303,6 +325,7 @@ if __name__ == "__main__":
     print(f"Starting training on {device}...")
 
     if accelerator.is_main_process:
+        print(f"Training with backbone {cfg.BASE_MODEL_ID}")
         if cfg.LAMBDA_LANG > 0.0:
             print("Language loss enabled.")
         if cfg.USE_CFG:
