@@ -8,7 +8,7 @@ BASE_MODEL_ID = "google/gemma-2-2b"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_15"
+CHECKPOINT_DIR = "checkpoints/attempt_16"
 
 # training
 RUN_BASELINE_LOSS_CHECK = False
@@ -27,9 +27,11 @@ LOWEST_TF_RATIO = (
     0.1  # teacher forcing drops from 1.0 to this value linearly during training
 )
 
+LAMBDA_POS = 1.0  # weight for position loss
+LAMBDA_SEMANTIC = 5.0  # weight for semantic loss
 LAMBDA_VEL = 2.5  # weight for velocity loss
-LAMBDA_FOOT_SKATE = 0.0  # weight for foot contact loss
-LAMBDA_FOOT_CONTACT = 0.0  # weight for foot contact classification loss
+LAMBDA_FOOT_CONTACT = 0.1  # weight for foot contact classification loss
+LAMBDA_FOOT_SKATE = 6.0  # weight for foot skate loss
 LAMBDA_LANG = 0.0  # weight for language loss
 
 # Classifier Free Guidance

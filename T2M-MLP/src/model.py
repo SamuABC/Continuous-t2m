@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, DynamicCache
+from semantic_loss import SemanticMotionLoss
 
 
 class MotionModelCont(nn.Module):
@@ -45,6 +46,12 @@ class MotionModelCont(nn.Module):
             target_modules="all-linear",
         )
         self.backbone = get_peft_model(self.backbone, peft_config)
+
+        # initialize semantic loss module
+        if cfg.LAMBDA_SEMANTIC > 0.0:
+            self.semantic_loss_module = SemanticMotionLoss(
+                device=self.backbone.device, dataset_name="t2m"
+            )
 
         # motion Adapter (MLP)
         self.motion_encoder = nn.Sequential(
@@ -244,12 +251,35 @@ class MotionModelCont(nn.Module):
             motion_mask.sum() + 1e-8
         )
 
+        # --- Semantic Loss ---
+        with torch.autocast(device_type=device.type, enabled=False):
+            if cfg.LAMBDA_SEMANTIC > 0.0:
+                # cast inputs to float32 for semantic loss module
+                motion_f32 = motion.to(dtype=torch.float32)
+                predicted_motion_f32 = predicted_motion.to(dtype=torch.float32)
+
+                # Calculate lengths from mask
+                m_lens = motion_mask.sum(dim=1).long()
+
+                # Extract features for Ground Truth
+                with torch.no_grad():
+                    gt_features = self.semantic_loss_module(motion_f32, m_lens)
+
+                # Extract features for Predicted Motion
+                pred_features = self.semantic_loss_module(predicted_motion_f32, m_lens)
+
+                # Calculate MSE between feature vectors
+                loss_semantic = nn.MSELoss()(pred_features, gt_features)
+            else:
+                loss_semantic = torch.tensor(0.0, device=device)
+
         # --- Total Motion Loss ---
         loss_motion = (
-            loss_pos
+            (cfg.LAMBDA_POS * loss_pos)
             + (cfg.LAMBDA_VEL * loss_vel)
             + (cfg.LAMBDA_FOOT_SKATE * loss_fc)
             + (cfg.LAMBDA_FOOT_CONTACT * loss_contact_cls)
+            + (cfg.LAMBDA_SEMANTIC * loss_semantic)
         )
 
         if cfg.LAMBDA_LANG > 0.0:
@@ -276,6 +306,7 @@ class MotionModelCont(nn.Module):
             "foot skate": loss_fc.item(),
             "contact": loss_contact_cls.item(),
             "lang": loss_lang.item(),
+            "semantic": loss_semantic.item(),
         }
 
         return loss_logs, total_loss, predicted_motion

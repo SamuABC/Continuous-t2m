@@ -66,7 +66,7 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
     axs[0, 0].legend()
 
     # 2. Component Losses
-    colors = ["orange", "magenta", "brown", "cyan", "lime"]
+    colors = ["orange", "green", "red", "purple", "brown", "darkcyan"]
     color_idx = 0
 
     for key, values in history_dict.items():
