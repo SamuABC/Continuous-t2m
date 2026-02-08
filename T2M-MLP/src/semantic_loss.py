@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from guoevaluation.modules import MovementConvEncoder, MotionEncoderBiGRUCo
+from guoevaluation.modules import MotionEncoderBiGRUCo, MovementConvEncoder
 
 
 class SemanticMotionLoss(nn.Module):

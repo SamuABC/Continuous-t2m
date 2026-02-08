@@ -277,12 +277,8 @@ if __name__ == "__main__":
     )  # End decay at 5/6 (keeping last 1/6 stable)
 
     # scheduler
-    scheduler1 = ConstantLR(optimizer, factor=1.0, total_iters=tf_decay_start)
-    scheduler2 = CosineAnnealingLR(
-        optimizer, T_max=cfg.EPOCHS - tf_decay_start, eta_min=cfg.LR_MIN
-    )
-    scheduler = SequentialLR(
-        optimizer, schedulers=[scheduler1, scheduler2], milestones=[tf_decay_start]
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=cfg.EPOCHS, eta_min=cfg.LR_MIN
     )
 
     # clear cache
@@ -376,6 +372,8 @@ if __name__ == "__main__":
                 print(f"  {k:.<20}: {avg_val:.6f}")
 
     for epoch in range(cfg.EPOCHS):
+        if cfg.RUN_BASELINE_LOSS_CHECK:
+            break
         if cfg.CONTINUE_WITH_CHECKPOINT:
             tf_ratio = cfg.LOWEST_TF_RATIO
         else:

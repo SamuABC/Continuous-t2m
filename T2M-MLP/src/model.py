@@ -3,8 +3,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from peft import LoraConfig, TaskType, get_peft_model
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, DynamicCache
 from semantic_loss import SemanticMotionLoss
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, DynamicCache
 
 
 class MotionModelCont(nn.Module):
@@ -191,66 +191,6 @@ class MotionModelCont(nn.Module):
         loss_vel_per_frame = loss_vel_unreduced.mean(dim=-1)
         loss_vel = (loss_vel_per_frame * vel_mask).sum() / (vel_mask.sum() + 1e-8)
 
-        # --- Foot Contact Consistency Loss ---
-        # Indices based on HumanML3D:
-        #   Positions: 157:163 (L_Foot 157:160, R_Foot 160:163)
-        #   Contacts:  259:263
-        mean_pos_l = self.mean[..., 157:160]
-        std_pos_l = self.std[..., 157:160]
-        mean_pos_r = self.mean[..., 160:163]
-        std_pos_r = self.std[..., 160:163]
-
-        mean_cont = self.mean[..., 259:263]
-        std_cont = self.std[..., 259:263]
-
-        # 2. Foot Skate Loss
-        # Derive velocity from positions
-        pred_pos_l_norm = predicted_motion[:, :, 157:160]
-        pred_pos_r_norm = predicted_motion[:, :, 160:163]
-
-        pred_pos_l_phys = pred_pos_l_norm * std_pos_l + mean_pos_l
-        pred_pos_r_phys = pred_pos_r_norm * std_pos_r + mean_pos_r
-
-        # Calculate velocity: v[t] = p[t] - p[t-1]
-        derived_vel_l = pred_pos_l_phys[:, 1:] - pred_pos_l_phys[:, :-1]
-        derived_vel_r = pred_pos_r_phys[:, 1:] - pred_pos_r_phys[:, :-1]
-
-        derived_vel_l_mag = torch.norm(derived_vel_l, dim=-1)
-        derived_vel_r_mag = torch.norm(derived_vel_r, dim=-1)
-
-        # 3. Foot Contacts
-        pred_contact_norm = predicted_motion[:, :, 259:263]
-        pred_contact_phys = pred_contact_norm * std_cont + mean_cont
-        scale_factor = 10.0
-        contact_logits = (pred_contact_phys - 0.5) * scale_factor
-        pred_contact_prob = torch.sigmoid(contact_logits)
-
-        # Align contacts with derived velocity (remove first frame)
-        # Max over Heel/Toe for Left (0:2) and Right (2:4)
-        pred_contact_l = torch.max(pred_contact_prob[:, 1:, 0:2], dim=-1).values
-        pred_contact_r = torch.max(pred_contact_prob[:, 1:, 2:4], dim=-1).values
-
-        fc_loss_l = (derived_vel_l_mag * pred_contact_l * vel_mask).sum()
-        fc_loss_r = (derived_vel_r_mag * pred_contact_r * vel_mask).sum()
-
-        loss_fc = (fc_loss_l + fc_loss_r) / (vel_mask.sum() + 1e-8)
-
-        # 4. Foot Contact Classification Loss
-        # Create binary GT
-        gt_contacts_norm = motion[:, :, 259:263]
-        gt_contacts_phys = gt_contacts_norm * std_cont + mean_cont
-        gt_contacts_binary = (gt_contacts_phys > 0.5).float()
-
-        loss_contact_fn = nn.BCEWithLogitsLoss(reduction="none")
-        loss_contact_unreduced = loss_contact_fn(contact_logits, gt_contacts_binary)
-
-        loss_contact_per_frame = loss_contact_unreduced.mean(dim=-1)
-
-        # Apply mask
-        loss_contact_cls = (loss_contact_per_frame * motion_mask).sum() / (
-            motion_mask.sum() + 1e-8
-        )
-
         # --- Semantic Loss ---
         with torch.autocast(device_type=device.type, enabled=False):
             if cfg.LAMBDA_SEMANTIC > 0.0:
@@ -277,8 +217,6 @@ class MotionModelCont(nn.Module):
         loss_motion = (
             (cfg.LAMBDA_POS * loss_pos)
             + (cfg.LAMBDA_VEL * loss_vel)
-            + (cfg.LAMBDA_FOOT_SKATE * loss_fc)
-            + (cfg.LAMBDA_FOOT_CONTACT * loss_contact_cls)
             + (cfg.LAMBDA_SEMANTIC * loss_semantic)
         )
 
@@ -303,8 +241,6 @@ class MotionModelCont(nn.Module):
             "loss": total_loss.item(),  # note: if renamed, also change in train.py
             "pos": loss_pos.item(),
             "vel": loss_vel.item(),
-            "foot skate": loss_fc.item(),
-            "contact": loss_contact_cls.item(),
             "lang": loss_lang.item(),
             "semantic": loss_semantic.item(),
         }
