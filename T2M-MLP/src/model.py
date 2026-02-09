@@ -1,3 +1,5 @@
+import os
+
 import config as cfg
 import numpy as np
 import torch
@@ -66,10 +68,44 @@ class MotionModelCont(nn.Module):
         self.motion_decoder = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim, motion_dim),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            nn.Linear(motion_dim, motion_dim),
+            nn.Linear(hidden_dim, motion_dim),
         )
+
+        if cfg.AUTOENCODER_TO_USE_PATH:
+            if os.path.exists(cfg.AUTOENCODER_TO_USE_PATH):
+                print(
+                    f"Loading pretrained Motion Autoencoder from {cfg.AUTOENCODER_TO_USE_PATH}..."
+                )
+                state_dict = torch.load(
+                    cfg.AUTOENCODER_TO_USE_PATH, map_location=self.backbone.device
+                )
+
+                # Filter and load keys strictly for encoder/decoder
+                self.motion_encoder.load_state_dict(
+                    {
+                        k.replace("motion_encoder.", ""): v
+                        for k, v in state_dict.items()
+                        if "motion_encoder" in k
+                    }
+                )
+                self.motion_decoder.load_state_dict(
+                    {
+                        k.replace("motion_decoder.", ""): v
+                        for k, v in state_dict.items()
+                        if "motion_decoder" in k
+                    }
+                )
+                # freeze encoder/decoder weights
+                for param in self.motion_encoder.parameters():
+                    param.requires_grad = False
+                for param in self.motion_decoder.parameters():
+                    param.requires_grad = False
+            else:
+                print(
+                    "Warning: No pretrained Autoencoder found, initializing randomly."
+                )
 
         # define start motion token
         self.start_motion_token = nn.Parameter(torch.randn(1, 1, hidden_dim))

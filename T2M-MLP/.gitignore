@@ -1,4 +1,5 @@
 checkpoints/
+checkpoints_ae/
 dataset/
 mlcloud-scripts/
 output/

@@ -455,9 +455,12 @@ if __name__ == "__main__":
             # unwrap model
             unwrapped_model = accelerator.unwrap_model(model)
 
-            trainable_state_dict = {
-                k: v for k, v in unwrapped_model.named_parameters() if v.requires_grad
-            }
+            # parameter saving logic
+            force_save_keys = ["motion_encoder", "motion_decoder", "start_motion_token"]
+            state_dict_to_save = {}
+            for k, v in unwrapped_model.named_parameters():
+                if v.requires_grad or any(key in k for key in force_save_keys):
+                    state_dict_to_save[k] = v
 
             if accelerator.is_main_process:
                 print(f"\n--- Running Evaluation at Epoch {epoch + 1} ---")
@@ -507,7 +510,7 @@ if __name__ == "__main__":
 
                 # save model params
                 torch.save(
-                    trainable_state_dict,
+                    state_dict_to_save,
                     os.path.join(PARAMS_DIRECTORY, f"trained_params_ep{epoch+1}.pt"),
                 )
 

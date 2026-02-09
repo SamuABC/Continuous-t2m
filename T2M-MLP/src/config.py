@@ -8,9 +8,19 @@ BASE_MODEL_ID = "google/gemma-2-2b"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_16"
+CHECKPOINT_DIR = "checkpoints/attempt_17"
+
+# autoencoder pretraining
+AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
+AE_BATCH_SIZE = 64
+AE_TRAIN_EPOCHS = 100
+LAMBDA_CONTRASTIVE = 0.1  # weight for contrastive loss in autoencoder pretraining
+LAMBDA_SMOOTHNESS = 0.1  # weight for smoothness loss in autoencoder pretraining
+POSITIVE_WINDOW = 5  # frames within [t-window, t+window] are considered positive pairs
+AE_NOISE_LEVEL = 0.1
 
 # training
+AUTOENCODER_TO_USE_PATH = "checkpoints_ae/google_gemma-2-2b/motion_ae_smooth.pt"
 RUN_BASELINE_LOSS_CHECK = False
 CONTINUE_WITH_CHECKPOINT = False
 CHECKPOINT_TO_CONTINUE_PATH = (
@@ -22,7 +32,7 @@ EVAL_BATCH_SIZE = 32
 TRAIN_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
-EPOCHS = 200
+EPOCHS = 150
 LOWEST_TF_RATIO = (
     0.2  # teacher forcing drops from 1.0 to this value linearly during training
 )
