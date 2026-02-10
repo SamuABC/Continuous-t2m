@@ -4,11 +4,13 @@ import torch
 MOTION_DIM = 263
 
 # model
-BASE_MODEL_ID = "google/gemma-2-2b"
+BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
+# "google/gemma-2-2b"
+# "Qwen/Qwen1.5-0.5B"
 
 # paths
 DATA_ROOT = "./dataset/HumanML3D"
-CHECKPOINT_DIR = "checkpoints/attempt_17"
+CHECKPOINT_DIR = "checkpoints/attempt_18_test_2"
 
 # autoencoder pretraining
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
@@ -20,7 +22,7 @@ POSITIVE_WINDOW = 5  # frames within [t-window, t+window] are considered positiv
 AE_NOISE_LEVEL = 0.1
 
 # training
-AUTOENCODER_TO_USE_PATH = "checkpoints_ae/google_gemma-2-2b/motion_ae_smooth.pt"
+AUTOENCODER_TO_USE_PATH = ""  # "checkpoints_ae/google_gemma-2-2b/motion_ae_smooth.pt"
 RUN_BASELINE_LOSS_CHECK = False
 CONTINUE_WITH_CHECKPOINT = False
 CHECKPOINT_TO_CONTINUE_PATH = (
@@ -32,7 +34,7 @@ EVAL_BATCH_SIZE = 32
 TRAIN_BATCH_SIZE = 32
 LR = 1e-4
 LR_MIN = 1e-5
-EPOCHS = 150
+EPOCHS = 10
 LOWEST_TF_RATIO = (
     0.2  # teacher forcing drops from 1.0 to this value linearly during training
 )

@@ -23,7 +23,6 @@ from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
 from guoevaluation.get_opt import get_opt
 from model import MotionModelCont
 from model_motion_loader import get_qwen_model_loader
-from torch.optim.lr_scheduler import ConstantLR, CosineAnnealingLR, SequentialLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
@@ -286,8 +285,8 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     # prepare with accelerator for parallel training
-    model, optimizer, train_dataloader, scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, scheduler
+    model, optimizer, train_dataloader = accelerator.prepare(
+        model, optimizer, train_dataloader
     )
 
     # eval setup
