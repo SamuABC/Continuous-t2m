@@ -107,17 +107,21 @@ def plot_metrics(history_dict, val_metrics, tf_ratios, lr_history):
 
     # 3. Teacher Forcing Ratio & Learning Rate (Dual Axis)
     # Axis 1: TF Ratio
-    axs[1, 0].plot(epochs, tf_ratios, label="TF Ratio", color="teal", linewidth=2)
-    axs[1, 0].set_ylabel("TF Ratio", color="teal")
-    axs[1, 0].tick_params(axis="y", labelcolor="teal")
+    axs[1, 0].plot(
+        epochs, tf_ratios, label="TF Ratio", color="darkolivegreen", linewidth=2
+    )
+    axs[1, 0].set_ylabel("TF Ratio")
+    axs[1, 0].tick_params(axis="y")
     axs[1, 0].set_ylim(-0.1, 1.1)
     axs[1, 0].grid(True)
 
     # Axis 2: Learning Rate
     ax2 = axs[1, 0].twinx()
-    ax2.plot(epochs, lr_history, label="LR", color="gold", linestyle=":", linewidth=2)
-    ax2.set_ylabel("Learning Rate", color="gold")
-    ax2.tick_params(axis="y", labelcolor="gold")
+    ax2.plot(
+        epochs, lr_history, label="LR", color="deeppink", linestyle=":", linewidth=2
+    )
+    ax2.set_ylabel("Learning Rate")
+    ax2.tick_params(axis="y")
 
     # Combine legends
     lines_1, labels_1 = axs[1, 0].get_legend_handles_labels()
