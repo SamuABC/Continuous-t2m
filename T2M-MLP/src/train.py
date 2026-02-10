@@ -30,11 +30,12 @@ from visualization.visualization import visualize_transformer_motion
 from dataset import HumanML3DDataset
 
 
-def save_history(epoch, loss_history_dict, val_metrics):
+def save_history(epoch, loss_history_dict, val_metrics, lr_history):
     """Saves raw data to JSON."""
     data = {
         "number_of_epochs": epoch,
         "loss_history": loss_history_dict,
+        "learning_rate_history": lr_history,
         "validation_metrics": val_metrics,
     }
     try:
@@ -44,7 +45,7 @@ def save_history(epoch, loss_history_dict, val_metrics):
         print(f"Failed to save training history: {e}")
 
 
-def plot_metrics(history_dict, val_metrics, tf_ratios):
+def plot_metrics(history_dict, val_metrics, tf_ratios, lr_history):
     """
     Plots metrics
     """
@@ -68,9 +69,20 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
     colors = ["orange", "green", "red", "purple", "brown", "darkcyan"]
     color_idx = 0
 
+    # Map log keys to config weights
+    weight_map = {
+        "pos": cfg.LAMBDA_POS,
+        "vel": cfg.LAMBDA_VEL,
+        "semantic": cfg.LAMBDA_SEMANTIC,
+        "lang": cfg.LAMBDA_LANG,
+    }
+
     for key, values in history_dict.items():
         if key == "loss":
             continue  # Total loss already plotted
+
+        weight = weight_map.get(key, 1.0)
+        weighted_values = [v * weight for v in values]
 
         if np.mean(values) < 0:
             continue  # skip invalid losses
@@ -80,26 +92,40 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
 
         axs[0, 1].plot(
             epochs,
-            values,
+            weighted_values,
             label=lbl,
             linestyle=style,
             color=colors[color_idx % len(colors)],
         )
         color_idx += 1
 
-    axs[0, 1].set_title("Component Losses")
+    axs[0, 1].set_title("Weighted Component Losses")
     axs[0, 1].grid(True)
     axs[0, 1].legend()
 
     # --- Row 2: Hyperparams & FID ---
 
-    # 3. Teacher Forcing Ratio
+    # 3. Teacher Forcing Ratio & Learning Rate (Dual Axis)
+    # Axis 1: TF Ratio
     axs[1, 0].plot(epochs, tf_ratios, label="TF Ratio", color="teal", linewidth=2)
-    axs[1, 0].set_title("Teacher Forcing Schedule")
-    axs[1, 0].set_xlabel("Epochs")
-    axs[1, 0].set_ylabel("Ratio")
+    axs[1, 0].set_ylabel("TF Ratio", color="teal")
+    axs[1, 0].tick_params(axis="y", labelcolor="teal")
     axs[1, 0].set_ylim(-0.1, 1.1)
     axs[1, 0].grid(True)
+
+    # Axis 2: Learning Rate
+    ax2 = axs[1, 0].twinx()
+    ax2.plot(epochs, lr_history, label="LR", color="gold", linestyle=":", linewidth=2)
+    ax2.set_ylabel("Learning Rate", color="gold")
+    ax2.tick_params(axis="y", labelcolor="gold")
+
+    # Combine legends
+    lines_1, labels_1 = axs[1, 0].get_legend_handles_labels()
+    lines_2, labels_2 = ax2.get_legend_handles_labels()
+    axs[1, 0].legend(lines_1 + lines_2, labels_1 + labels_2, loc="center right")
+
+    axs[1, 0].set_title("Teacher Forcing & Learning Rate")
+    axs[1, 0].set_xlabel("Epochs")
 
     # 4. FID
     if val_epochs:
@@ -109,7 +135,7 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
     axs[1, 1].axhline(
         y=0.0016, color="red", linestyle="--", label="Ground Truth (0.002)"
     )
-    axs[1, 1].set_title("FID (Lower is better)")
+    axs[1, 1].set_title("FID")
     axs[1, 1].set_xlabel("Epochs")
     axs[1, 1].set_ylabel("FID")
     axs[1, 1].grid(True)
@@ -128,7 +154,7 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
     axs[2, 0].axhline(
         y=9.5225, color="green", linestyle="--", label="Ground Truth (9.52)"
     )
-    axs[2, 0].set_title("Diversity (Closer to GT is better)")
+    axs[2, 0].set_title("Diversity")
     axs[2, 0].set_xlabel("Epochs")
     axs[2, 0].set_ylabel("Score")
     axs[2, 0].grid(True)
@@ -145,7 +171,7 @@ def plot_metrics(history_dict, val_metrics, tf_ratios):
     axs[2, 1].axhline(
         y=2.9554, color="purple", linestyle="--", label="Ground Truth (2.96)"
     )
-    axs[2, 1].set_title("Matching Score (Lower is better)")
+    axs[2, 1].set_title("Matching Score")
     axs[2, 1].set_xlabel("Epochs")
     axs[2, 1].set_ylabel("Score")
     axs[2, 1].grid(True)
@@ -314,6 +340,7 @@ if __name__ == "__main__":
     # store plotting data
     loss_history_dict = {}
     tf_ratios_epoch = []
+    lr_history = []
     val_metrics = {"epochs": [], "fid": [], "diversity": [], "matching": []}
 
     # --- Training Loop ---
@@ -388,6 +415,9 @@ if __name__ == "__main__":
                 tf_ratio = cfg.LOWEST_TF_RATIO
 
         tf_ratios_epoch.append(tf_ratio)
+
+        current_lr = scheduler.get_last_lr()[0]
+        lr_history.append(current_lr)
 
         if accelerator.is_main_process:
             print(
@@ -505,6 +535,7 @@ if __name__ == "__main__":
                     loss_history_dict,
                     val_metrics,
                     tf_ratios_epoch,
+                    lr_history,
                 )
 
                 # save model params
@@ -518,6 +549,7 @@ if __name__ == "__main__":
                     epoch + 1,
                     loss_history_dict,
                     val_metrics,
+                    lr_history,
                 )
 
             accelerator.wait_for_everyone()
