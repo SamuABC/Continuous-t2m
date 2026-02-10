@@ -293,7 +293,7 @@ if __name__ == "__main__":
         )
     else:
         optimizer = optim.AdamW(
-            model.parameters(), lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY
+            model.parameters(), lr=cfg.LR_START, weight_decay=cfg.WEIGHT_DECAY
         )
 
     tf_decay_start = int(cfg.EPOCHS * (1 / 3))  # Start decay at 1/3

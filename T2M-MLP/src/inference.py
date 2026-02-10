@@ -39,7 +39,7 @@ def generate(prompt: str):
     visualize_transformer_motion(y_pred_denorm, prompt)
 
 
-def generate_val_motions(epoch: int = cfg.INFERENCE_MODEL_EPOCH):
+def generate_val_motions(epoch: int = cfg.VISUAL_VAL_EPOCH_PRINT):
     """
     generates and visualizes motions for test prompts.
     Arg:

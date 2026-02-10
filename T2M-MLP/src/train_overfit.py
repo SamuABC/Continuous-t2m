@@ -48,7 +48,7 @@ if __name__ == "__main__":
         )
     else:
         optimizer = optim.AdamW(
-            model.parameters(), lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY
+            model.parameters(), lr=cfg.LR_START, weight_decay=cfg.WEIGHT_DECAY
         )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

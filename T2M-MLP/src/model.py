@@ -106,6 +106,8 @@ class MotionModelCont(nn.Module):
                 print(
                     "Warning: No pretrained Autoencoder found, initializing randomly."
                 )
+        else:
+            print("No Autoencoder checkpoint specified, initializing randomly.")
 
         # define start motion token
         self.start_motion_token = nn.Parameter(torch.randn(1, 1, hidden_dim))
