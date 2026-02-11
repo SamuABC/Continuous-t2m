@@ -218,16 +218,19 @@ class MotionModelCont(nn.Module):
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss_pos = (loss_per_frame * motion_mask).sum() / (motion_mask.sum() + 1e-8)
 
-        # velocity loss (MSE), calculate on frame differences
-        target_vel = motion[:, 1:] - motion[:, :-1]
-        pred_vel = predicted_motion[:, 1:] - predicted_motion[:, :-1]
+        if cfg.LAMBDA_VEL > 0.0:
+            # velocity loss (MSE), calculate on frame differences
+            target_vel = motion[:, 1:] - motion[:, :-1]
+            pred_vel = predicted_motion[:, 1:] - predicted_motion[:, :-1]
 
-        # adjust mask for velocity (one frame shorter)
-        vel_mask = motion_mask[:, 1:]
+            # adjust mask for velocity (one frame shorter)
+            vel_mask = motion_mask[:, 1:]
 
-        loss_vel_unreduced = loss_fn(pred_vel, target_vel)
-        loss_vel_per_frame = loss_vel_unreduced.mean(dim=-1)
-        loss_vel = (loss_vel_per_frame * vel_mask).sum() / (vel_mask.sum() + 1e-8)
+            loss_vel_unreduced = loss_fn(pred_vel, target_vel)
+            loss_vel_per_frame = loss_vel_unreduced.mean(dim=-1)
+            loss_vel = (loss_vel_per_frame * vel_mask).sum() / (vel_mask.sum() + 1e-8)
+        else:
+            loss_vel = torch.tensor(-1.0, device=device)
 
         # --- Semantic Loss ---
         with torch.autocast(device_type=device.type, enabled=False):
@@ -249,7 +252,7 @@ class MotionModelCont(nn.Module):
                 # Calculate MSE between feature vectors
                 loss_semantic = nn.MSELoss()(pred_features, gt_features)
             else:
-                loss_semantic = torch.tensor(0.0, device=device)
+                loss_semantic = torch.tensor(-1.0, device=device)
 
         # --- Total Motion Loss ---
         loss_motion = (
