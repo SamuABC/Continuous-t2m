@@ -5,6 +5,7 @@ import os
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+import random
 from datetime import timedelta
 
 import config as cfg
@@ -17,6 +18,7 @@ from accelerate import (
     DistributedDataParallelKwargs,
     InitProcessGroupKwargs,
 )
+from accelerate.utils import set_seed
 from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
@@ -28,6 +30,23 @@ from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
 
 from dataset import HumanML3DDataset
+
+
+def seed_everything(seed=42):
+    """
+    Sets seed for all random number generators to ensure reproducibility.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # Ensure deterministic behavior for cuDNN
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # Set seed for accelerate
+    set_seed(seed)
 
 
 def save_history(epoch, loss_history_dict, val_metrics, lr_history):
@@ -222,10 +241,11 @@ def validate_visual(model, epoch, save_dir):
                 with codecs.open(text_path, "r", encoding="utf-8") as f:
                     texts = [line.strip().split("#")[0] for line in f.readlines()]
                     prompt = texts[0]
+                    formatted_prompt = cfg.PROMPT + prompt + cfg.PROMPT_END
 
                 # Generate
                 with torch.no_grad():
-                    generated_motion = model.generate(prompt)
+                    generated_motion = model.generate(formatted_prompt)
 
                 # Post-processing
                 motion_data = generated_motion[0].cpu().numpy()
@@ -249,6 +269,8 @@ def validate_visual(model, epoch, save_dir):
 
 if __name__ == "__main__":
     # --- Setup ---
+    seed_everything(cfg.SEED)
+
     ddp_kwargs = DistributedDataParallelKwargs(
         find_unused_parameters=True
     )  # ignore unused params

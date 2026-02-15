@@ -3,6 +3,7 @@ import torch
 # general
 MOTION_DIM = 263
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SEED = 42
 
 # model
 BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
@@ -13,7 +14,7 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 # dataset
 DATA_ROOT = "./dataset/HumanML3D"
 # path to save current t2m training results
-CHECKPOINT_DIR = "checkpoints/attempt_28_qwen_more_lora"
+CHECKPOINT_DIR = "checkpoints/attempt_29_baseline"
 # path to save current autoencoder pretraining results
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
 # path to pretrained t2m model to continue training from
@@ -51,10 +52,8 @@ LAMBDA_POS = 1.0  # weight for position loss
 LAMBDA_SEMANTIC = 0.0  # weight for semantic loss
 LAMBDA_VEL = 0.0  # weight for velocity loss
 LAMBDA_LANG = 0.0  # weight for language loss
-TF_WARMUP_PHASE = 1 / 5  # fraction of total epochs used for tf warmup (tf=1.0)
-TF_STABILASATION_PHASE = (
-    4 / 5
-)  # fraction of total epochs used for tf stabilization in the end (tf=lowest_tf_ratio)
+TF_WARMUP_PHASE = 1 / 5  # percentage of epochs where decay of tf starts
+TF_STABILASATION_PHASE = 4 / 5  # percentage of epochs where tf stays at lowest value
 LORA_RANK = 32
 LORA_ALPHA = 64
 LORA_DROPOUT = 0.1

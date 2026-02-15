@@ -26,6 +26,8 @@ def generate(prompt: str):
     mean = np.load(cfg.DATA_ROOT + "/Mean.npy")
     std = np.load(cfg.DATA_ROOT + "/Std.npy")
 
+    prompt = cfg.PROMPT + prompt + cfg.PROMPT_END
+
     # returns tensor of shape (1, Seq_Len, Motion_Dim)
     with torch.no_grad():
         generated_motion = model.generate(prompt)
