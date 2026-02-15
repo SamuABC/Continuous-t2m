@@ -1,6 +1,7 @@
 import codecs
 import os
 
+import config as cfg
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -43,6 +44,9 @@ class HumanML3DDataset(Dataset):
             # HumanML3D often has multiple descriptions. Take the first one.
             texts = [line.strip().split("#")[0] for line in f.readlines()]
             text = texts[0]
+
+        # adjust prompt
+        text = cfg.PROMPT + text + cfg.PROMPT_END
 
         # tokenize text
         text_inputs = self.tokenizer(

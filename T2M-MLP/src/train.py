@@ -300,10 +300,10 @@ if __name__ == "__main__":
             model.parameters(), lr=cfg.LR_START, weight_decay=cfg.WEIGHT_DECAY
         )
 
-    tf_decay_start = int(cfg.EPOCHS * (1 / 3))  # Start decay at 1/3
+    tf_decay_start = int(cfg.EPOCHS * cfg.TF_WARMUP_PHASE)  # Start decay at this epoch
     tf_decay_end = int(
-        cfg.EPOCHS * (5 / 6)
-    )  # End decay at 5/6 (keeping last 1/6 stable)
+        cfg.EPOCHS * cfg.TF_STABILASATION_PHASE
+    )  # End decay at this epoch
 
     # scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -351,11 +351,7 @@ if __name__ == "__main__":
     print(f"Starting training on {device}...")
 
     if accelerator.is_main_process:
-        print(f"Training with backbone {cfg.BASE_MODEL_ID}")
-        if cfg.LAMBDA_LANG > 0.0:
-            print("Language loss enabled.")
-        if cfg.USE_CFG:
-            print("Classifier Free Guidance enabled.")
+        cfg.print_config()
 
     if cfg.RUN_BASELINE_LOSS_CHECK:
         if accelerator.is_main_process:

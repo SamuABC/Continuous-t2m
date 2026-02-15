@@ -5,7 +5,7 @@ MOTION_DIM = 263
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # model
-BASE_MODEL_ID = "google/gemma-2-2b"
+BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 # "google/gemma-2-2b"
 # "Qwen/Qwen1.5-0.5B"
 
@@ -13,7 +13,7 @@ BASE_MODEL_ID = "google/gemma-2-2b"
 # dataset
 DATA_ROOT = "./dataset/HumanML3D"
 # path to save current t2m training results
-CHECKPOINT_DIR = "checkpoints/attempt_19_baseline"
+CHECKPOINT_DIR = "checkpoints/attempt_28_qwen_more_lora"
 # path to save current autoencoder pretraining results
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
 # path to pretrained t2m model to continue training from
@@ -45,12 +45,19 @@ TRAIN_BATCH_SIZE = 32
 WEIGHT_DECAY = 0.0
 LR_START = 1e-4
 LR_MIN = 1e-5
-EPOCHS = 150
+EPOCHS = 100
 LOWEST_TF_RATIO = 0.2  # tf drops from 1.0 to this value linearly during training
 LAMBDA_POS = 1.0  # weight for position loss
-LAMBDA_SEMANTIC = 5.0  # weight for semantic loss
-LAMBDA_VEL = 3.0  # weight for velocity loss
+LAMBDA_SEMANTIC = 0.0  # weight for semantic loss
+LAMBDA_VEL = 0.0  # weight for velocity loss
 LAMBDA_LANG = 0.0  # weight for language loss
+TF_WARMUP_PHASE = 1 / 5  # fraction of total epochs used for tf warmup (tf=1.0)
+TF_STABILASATION_PHASE = (
+    4 / 5
+)  # fraction of total epochs used for tf stabilization in the end (tf=lowest_tf_ratio)
+LORA_RANK = 32
+LORA_ALPHA = 64
+LORA_DROPOUT = 0.1
 
 # Classifier Free Guidance
 # flags
@@ -61,3 +68,59 @@ GUIDANCE_SCALE = 2.5
 
 # inference
 VISUAL_VAL_EPOCH_PRINT = 100  # just to inform about the inference epoch number
+
+PROMPT = "### Instruction:\nGenerate a motion matching the following input human motion description\n\n### Input:\n"
+PROMPT_END = "\n\nResponse: <Motion>"
+
+
+def print_config():
+    print("Configuration:")
+    print("Base Model: " + BASE_MODEL_ID)
+    print(
+        "Autoencoder used: "
+        + (AUTOENCODER_TO_USE_PATH if AUTOENCODER_TO_USE_PATH else "None")
+    )
+    if CONTINUE_WITH_CHECKPOINT:
+        print("Continuing training from checkpoint: " + CHECKPOINT_TO_CONTINUE_PATH)
+    if USE_CFG:
+        print(
+            "Classifier Free Guidance: Scale = "
+            + str(GUIDANCE_SCALE)
+            + ", Cond Dropout Rate = "
+            + str(COND_DROPOUT_RATE)
+        )
+    print("Training Hyperparameters:")
+    print("- Epochs: " + str(EPOCHS))
+    print("- Train Batch Size: " + str(TRAIN_BATCH_SIZE) + " (times number of gpus)")
+    print("- Eval Batch Size: " + str(EVAL_BATCH_SIZE))
+    print("- Learning Rate: " + str(LR_START) + " to " + str(LR_MIN))
+    print("- Weight Decay: " + str(WEIGHT_DECAY))
+    print(
+        "- Teacher Forcing: "
+        + str(1.0)
+        + " to "
+        + str(LOWEST_TF_RATIO)
+        + " (Warmupstart at: "
+        + str(TF_WARMUP_PHASE * 100)
+        + "% of epochs, Stabilizationstart at: "
+        + str(TF_STABILASATION_PHASE * 100)
+        + "% of epochs)"
+    )
+    print(
+        "- Loss Weights: Position = "
+        + str(LAMBDA_POS)
+        + ", Semantic = "
+        + str(LAMBDA_SEMANTIC)
+        + ", Velocity = "
+        + str(LAMBDA_VEL)
+        + ", Language = "
+        + str(LAMBDA_LANG)
+    )
+    print(
+        "- LoRA: Rank = "
+        + str(LORA_RANK)
+        + ", Alpha = "
+        + str(LORA_ALPHA)
+        + ", Dropout = "
+        + str(LORA_DROPOUT)
+    )

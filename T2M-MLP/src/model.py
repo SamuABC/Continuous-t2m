@@ -10,7 +10,7 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, Dynami
 
 
 class MotionModelCont(nn.Module):
-    def __init__(self, base_model_id, motion_dim, r=32, lora_alpha=64):
+    def __init__(self, base_model_id, motion_dim):
         super().__init__()
 
         config = AutoConfig.from_pretrained(base_model_id)
@@ -42,9 +42,9 @@ class MotionModelCont(nn.Module):
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             inference_mode=False,
-            r=r,
-            lora_alpha=lora_alpha,
-            lora_dropout=0.1,
+            r=cfg.LORA_RANK,
+            lora_alpha=cfg.LORA_ALPHA,
+            lora_dropout=cfg.LORA_DROPOUT,
             target_modules="all-linear",
         )
         self.backbone = get_peft_model(self.backbone, peft_config)
@@ -98,10 +98,10 @@ class MotionModelCont(nn.Module):
                     }
                 )
                 # freeze encoder/decoder weights
-                for param in self.motion_encoder.parameters():
-                    param.requires_grad = False
-                for param in self.motion_decoder.parameters():
-                    param.requires_grad = False
+                # for param in self.motion_encoder.parameters():
+                #     param.requires_grad = False
+                # for param in self.motion_decoder.parameters():
+                #     param.requires_grad = False
             else:
                 print(
                     "Warning: No pretrained Autoencoder found, initializing randomly."
@@ -293,6 +293,12 @@ class MotionModelCont(nn.Module):
         self.eval()
         device = self.backbone.device
 
+        # adjust prompt
+        if isinstance(text, list):
+            text = [cfg.PROMPT + t + cfg.PROMPT_END for t in text]
+        else:
+            text = cfg.PROMPT + text + cfg.PROMPT_END
+
         # prepare text inputs
         inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
         input_ids = inputs.input_ids
@@ -356,6 +362,12 @@ class MotionModelCont(nn.Module):
     def generate_with_cfg(self, text, max_new_tokens=196):
         self.eval()
         device = self.backbone.device
+
+        # adjust prompt
+        if isinstance(text, list):
+            text = [cfg.PROMPT + t + cfg.PROMPT_END for t in text]
+        else:
+            text = cfg.PROMPT + text + cfg.PROMPT_END
 
         # prepare text inputs
         cond_inputs = self.tokenizer(text, return_tensors="pt", padding=True).to(device)
