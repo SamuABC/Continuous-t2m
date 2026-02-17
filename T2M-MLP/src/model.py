@@ -137,13 +137,15 @@ class MotionModelCont(nn.Module):
 
         # --- Standard training --- ( 1 pass)
         if teacher_forcing_ratio == 1.0 or not self.training:
-            return self._run_forward_pass(current_input_ids, motion, motion_mask)
+            return self._run_forward_pass(
+                current_input_ids, motion, motion_mask, teacher_forcing_ratio
+            )
 
         # --- Scheduled Sampling --- (2 passes)
         # get predicted motion without gradient tracking
         with torch.no_grad():
             _, _, predicted_motion = self._run_forward_pass(
-                current_input_ids, motion, motion_mask
+                current_input_ids, motion, motion_mask, teacher_forcing_ratio
             )
 
         # mixing
@@ -154,9 +156,11 @@ class MotionModelCont(nn.Module):
 
         mixed_motion = mixing_mask * motion + (1 - mixing_mask) * predicted_motion
 
-        return self._run_forward_pass(current_input_ids, mixed_motion, motion_mask)
+        return self._run_forward_pass(
+            current_input_ids, mixed_motion, motion_mask, teacher_forcing_ratio
+        )
 
-    def _run_forward_pass(self, input_ids, motion, motion_mask):
+    def _run_forward_pass(self, input_ids, motion, motion_mask, teacher_forcing_ratio):
         device = input_ids.device
         B, T, D = motion.shape
 
@@ -218,7 +222,10 @@ class MotionModelCont(nn.Module):
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss_pos = (loss_per_frame * motion_mask).sum() / (motion_mask.sum() + 1e-8)
 
-        if cfg.LAMBDA_VEL > 0.0:
+        # disable velocity loss with teacher forcing < 1 to avoid instability
+        lambda_vel_effective = 0.0 if (teacher_forcing_ratio < 1.0) else cfg.LAMBDA_VEL
+
+        if lambda_vel_effective > 0.0:
             # velocity loss (MSE), calculate on frame differences
             target_vel = motion[:, 1:] - motion[:, :-1]
             pred_vel = predicted_motion[:, 1:] - predicted_motion[:, :-1]
@@ -257,7 +264,7 @@ class MotionModelCont(nn.Module):
         # --- Total Motion Loss ---
         loss_motion = (
             (cfg.LAMBDA_POS * loss_pos)
-            + (cfg.LAMBDA_VEL * loss_vel)
+            + (lambda_vel_effective * loss_vel)
             + (cfg.LAMBDA_SEMANTIC * loss_semantic)
         )
 
