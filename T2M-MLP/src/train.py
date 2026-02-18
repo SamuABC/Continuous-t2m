@@ -103,8 +103,8 @@ def plot_metrics(history_dict, val_metrics, tf_ratios, lr_history):
         weight = weight_map.get(key, 1.0)
         weighted_values = [v * weight for v in values]
 
-        if np.mean(values) < 0:
-            continue  # skip invalid losses
+        if weight == 0.0:
+            continue  # skip losses that are not weighted
 
         style = "--"
         lbl = f"{key} Loss"

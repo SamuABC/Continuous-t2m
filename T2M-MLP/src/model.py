@@ -222,8 +222,12 @@ class MotionModelCont(nn.Module):
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss_pos = (loss_per_frame * motion_mask).sum() / (motion_mask.sum() + 1e-8)
 
-        # disable velocity loss with teacher forcing < 1 to avoid instability
-        lambda_vel_effective = 0.0 if (teacher_forcing_ratio < 1.0) else cfg.LAMBDA_VEL
+        # disable velocity loss with teacher forcing < configvalue to avoid instability
+        lambda_vel_effective = (
+            0.0
+            if (teacher_forcing_ratio < cfg.DROP_VEL_AT_TF_RATIO)
+            else cfg.LAMBDA_VEL
+        )
 
         if lambda_vel_effective > 0.0:
             # velocity loss (MSE), calculate on frame differences

@@ -14,7 +14,7 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 # dataset
 DATA_ROOT = "./dataset/HumanML3D"
 # path to save current t2m training results
-CHECKPOINT_DIR = "checkpoints/attempt_29_baseline"
+CHECKPOINT_DIR = "checkpoints/attempt_39_cfg"
 # path to save current autoencoder pretraining results
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
 # path to pretrained t2m model to continue training from
@@ -49,8 +49,9 @@ LR_MIN = 1e-5
 EPOCHS = 100
 LOWEST_TF_RATIO = 0.2  # tf drops from 1.0 to this value linearly during training
 LAMBDA_POS = 1.0  # weight for position loss
+LAMBDA_VEL = 5.0  # weight for velocity loss
+DROP_VEL_AT_TF_RATIO = 0.7
 LAMBDA_SEMANTIC = 0.0  # weight for semantic loss
-LAMBDA_VEL = 0.0  # weight for velocity loss
 LAMBDA_LANG = 0.0  # weight for language loss
 TF_WARMUP_PHASE = 1 / 5  # percentage of epochs where decay of tf starts
 TF_STABILASATION_PHASE = 4 / 5  # percentage of epochs where tf stays at lowest value
@@ -60,7 +61,7 @@ LORA_DROPOUT = 0.1
 
 # Classifier Free Guidance
 # flags
-USE_CFG = False
+USE_CFG = True
 # hyperparameters
 COND_DROPOUT_RATE = 0.1  # probability of dropping text conditioning during training
 GUIDANCE_SCALE = 2.5
@@ -114,6 +115,10 @@ def print_config():
         + str(LAMBDA_VEL)
         + ", Language = "
         + str(LAMBDA_LANG)
+    )
+    print(
+        "Dropping velocity loss when teacher forcing ratio < "
+        + str(DROP_VEL_AT_TF_RATIO)
     )
     print(
         "- LoRA: Rank = "
