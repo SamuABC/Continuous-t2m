@@ -6,3 +6,4 @@ output/
 glove/
 
 __pycache__/
+.vscode/

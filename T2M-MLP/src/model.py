@@ -138,14 +138,14 @@ class MotionModelCont(nn.Module):
         # --- Standard training --- ( 1 pass)
         if teacher_forcing_ratio == 1.0 or not self.training:
             return self._run_forward_pass(
-                current_input_ids, motion, motion_mask, teacher_forcing_ratio
+                current_input_ids, motion, motion, motion_mask, teacher_forcing_ratio
             )
 
         # --- Scheduled Sampling --- (2 passes)
         # get predicted motion without gradient tracking
         with torch.no_grad():
             _, _, predicted_motion = self._run_forward_pass(
-                current_input_ids, motion, motion_mask, teacher_forcing_ratio
+                current_input_ids, motion, motion, motion_mask, teacher_forcing_ratio
             )
 
         # mixing
@@ -157,19 +157,21 @@ class MotionModelCont(nn.Module):
         mixed_motion = mixing_mask * motion + (1 - mixing_mask) * predicted_motion
 
         return self._run_forward_pass(
-            current_input_ids, mixed_motion, motion_mask, teacher_forcing_ratio
+            current_input_ids, mixed_motion, motion, motion_mask, teacher_forcing_ratio
         )
 
-    def _run_forward_pass(self, input_ids, motion, motion_mask, teacher_forcing_ratio):
+    def _run_forward_pass(
+        self, input_ids, motion_input, motion_target, motion_mask, teacher_forcing_ratio
+    ):
         device = input_ids.device
-        B, T, D = motion.shape
+        B, T, D = motion_target.shape
 
         # embeddings
         base_model = self.backbone.get_base_model()
         input_embedding_layer = base_model.get_input_embeddings()
 
         text_embeds = input_embedding_layer(input_ids)
-        motion_embeds = self.motion_encoder(motion)
+        motion_embeds = self.motion_encoder(motion_input)
 
         start_token = self.start_motion_token.expand(B, -1, -1)
         # shift motion input
@@ -218,7 +220,7 @@ class MotionModelCont(nn.Module):
 
         # position loss (MSE)
         loss_fn = nn.MSELoss(reduction="none")
-        loss_unreduced = loss_fn(predicted_motion, motion)
+        loss_unreduced = loss_fn(predicted_motion, motion_target)
         loss_per_frame = loss_unreduced.mean(dim=-1)
         loss_pos = (loss_per_frame * motion_mask).sum() / (motion_mask.sum() + 1e-8)
 
@@ -231,7 +233,7 @@ class MotionModelCont(nn.Module):
 
         if lambda_vel_effective > 0.0:
             # velocity loss (MSE), calculate on frame differences
-            target_vel = motion[:, 1:] - motion[:, :-1]
+            target_vel = motion_target[:, 1:] - motion_target[:, :-1]
             pred_vel = predicted_motion[:, 1:] - predicted_motion[:, :-1]
 
             # adjust mask for velocity (one frame shorter)
@@ -247,7 +249,7 @@ class MotionModelCont(nn.Module):
         with torch.autocast(device_type=device.type, enabled=False):
             if cfg.LAMBDA_SEMANTIC > 0.0:
                 # cast inputs to float32 for semantic loss module
-                motion_f32 = motion.to(dtype=torch.float32)
+                motion_f32 = motion_target.to(dtype=torch.float32)
                 predicted_motion_f32 = predicted_motion.to(dtype=torch.float32)
 
                 # Calculate lengths from mask

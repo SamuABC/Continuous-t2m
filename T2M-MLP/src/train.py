@@ -101,10 +101,16 @@ def plot_metrics(history_dict, val_metrics, tf_ratios, lr_history):
             continue  # Total loss already plotted
 
         weight = weight_map.get(key, 1.0)
-        weighted_values = [v * weight for v in values]
 
         if weight == 0.0:
             continue  # skip losses that are not weighted
+
+        # Convert to numpy array and replace negative values with NaN
+        val_array = np.array(values)
+        val_array[val_array < 0] = np.nan
+
+        # Apply weight only to valid numbers
+        weighted_values = val_array * weight
 
         style = "--"
         lbl = f"{key} Loss"
