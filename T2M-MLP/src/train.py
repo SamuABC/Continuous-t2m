@@ -275,6 +275,8 @@ def validate_visual(model, epoch, save_dir):
 
 if __name__ == "__main__":
     # --- Setup ---
+    cfg.update_config_from_args()
+
     seed_everything(cfg.SEED)
 
     ddp_kwargs = DistributedDataParallelKwargs(

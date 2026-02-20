@@ -1,3 +1,5 @@
+import argparse
+
 import torch
 
 # general
@@ -14,7 +16,7 @@ BASE_MODEL_ID = "Qwen/Qwen1.5-0.5B"
 # dataset
 DATA_ROOT = "./dataset/HumanML3D"
 # path to save current c-t2m training results
-CHECKPOINT_DIR = "checkpoints/attempt_41_tf_to_0.2"
+CHECKPOINT_DIR = "checkpoints/dir_not_configured"
 # path to save current autoencoder pretraining results
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
 # path to pretrained t2m model to continue training from
@@ -76,6 +78,34 @@ VISUAL_VAL_EPOCH_PRINT = 100  # just to inform about the inference epoch number
 
 PROMPT = "### Instruction:\nGenerate a motion matching the following input human motion description\n\n### Input:\n"
 PROMPT_END = "\n\nResponse: <Motion>"
+
+
+def update_config_from_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--checkpoint_dir", type=str)
+    parser.add_argument("--lambda_pos", type=float)
+    parser.add_argument("--lambda_vel", type=float)
+    parser.add_argument("--lambda_semantic", type=float)
+    parser.add_argument("--lambda_lang", type=float)
+
+    args, unknown = parser.parse_known_args()
+
+    if args.checkpoint_dir:
+        global CHECKPOINT_DIR
+        CHECKPOINT_DIR = args.checkpoint_dir
+    if args.lambda_pos is not None:
+        global LAMBDA_POS
+        LAMBDA_POS = args.lambda_pos
+    if args.lambda_vel is not None:
+        global LAMBDA_VEL
+        LAMBDA_VEL = args.lambda_vel
+    if args.lambda_semantic is not None:
+        global LAMBDA_SEMANTIC
+        LAMBDA_SEMANTIC = args.lambda_semantic
+    if args.lambda_lang is not None:
+        global LAMBDA_LANG
+        LAMBDA_LANG = args.lambda_lang
 
 
 def print_config():
