@@ -328,10 +328,8 @@ if __name__ == "__main__":
             model.parameters(), lr=cfg.LR_START, weight_decay=cfg.WEIGHT_DECAY
         )
 
-    tf_decay_start = int(cfg.EPOCHS * cfg.TF_WARMUP_PHASE)  # Start decay at this epoch
-    tf_decay_end = int(
-        cfg.EPOCHS * cfg.TF_STABILASATION_PHASE
-    )  # End decay at this epoch
+    tf_decay_start = int(cfg.EPOCHS * cfg.TF_DECAY_START)  # Start decay at this epoch
+    tf_decay_end = int(cfg.EPOCHS * cfg.TF_DECAY_END)  # End decay at this epoch
 
     # scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
