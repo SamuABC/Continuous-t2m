@@ -1,0 +1,55 @@
+Epoch 1
+---> [MotionQwen] Matching Score: 7.4680
+---> [MotionQwen] R_precision: (top 1): 0.0273 (top 2): 0.0532 (top 3): 0.0924 
+---> [MotionQwen] FID: 33.4234
+---> [MotionQwen] Diversity: 2.4959
+Epoch 10
+---> [MotionQwen] Matching Score: 7.5392
+---> [MotionQwen] R_precision: (top 1): 0.0705 (top 2): 0.1310 (top 3): 0.1762 
+---> [MotionQwen] FID: 25.8376
+---> [MotionQwen] Diversity: 4.4494
+Epoch 20
+---> [MotionQwen] Matching Score: 7.7900
+---> [MotionQwen] R_precision: (top 1): 0.0771 (top 2): 0.1390 (top 3): 0.1795 
+---> [MotionQwen] FID: 20.9268
+---> [MotionQwen] Diversity: 6.3071
+Epoch 30
+---> [MotionQwen] Matching Score: 7.4698
+---> [MotionQwen] R_precision: (top 1): 0.0878 (top 2): 0.1589 (top 3): 0.2114 
+---> [MotionQwen] FID: 13.8628
+---> [MotionQwen] Diversity: 6.6901
+Epoch 40
+---> [MotionQwen] Matching Score: 7.7256
+---> [MotionQwen] R_precision: (top 1): 0.0831 (top 2): 0.1363 (top 3): 0.1802 
+---> [MotionQwen] FID: 11.5048
+---> [MotionQwen] Diversity: 6.9408
+Epoch 50
+---> [MotionQwen] Matching Score: 7.2354
+---> [MotionQwen] R_precision: (top 1): 0.0738 (top 2): 0.1410 (top 3): 0.1941 
+---> [MotionQwen] FID: 13.4166
+---> [MotionQwen] Diversity: 6.6101
+Epoch 60
+---> [MotionQwen] Matching Score: 7.1415
+---> [MotionQwen] R_precision: (top 1): 0.0851 (top 2): 0.1376 (top 3): 0.2021 
+---> [MotionQwen] FID: 9.5813
+---> [MotionQwen] Diversity: 6.7460
+Epoch 70
+---> [MotionQwen] Matching Score: 7.2885
+---> [MotionQwen] R_precision: (top 1): 0.0791 (top 2): 0.1456 (top 3): 0.1981 
+---> [MotionQwen] FID: 9.1582
+---> [MotionQwen] Diversity: 7.1055
+Epoch 80
+---> [MotionQwen] Matching Score: 7.0451
+---> [MotionQwen] R_precision: (top 1): 0.0938 (top 2): 0.1682 (top 3): 0.2254 
+---> [MotionQwen] FID: 8.8790
+---> [MotionQwen] Diversity: 7.4171
+Epoch 90
+---> [MotionQwen] Matching Score: 7.0410
+---> [MotionQwen] R_precision: (top 1): 0.0911 (top 2): 0.1662 (top 3): 0.2168 
+---> [MotionQwen] FID: 8.7493
+---> [MotionQwen] Diversity: 7.2078
+Epoch 100
+---> [MotionQwen] Matching Score: 7.1444
+---> [MotionQwen] R_precision: (top 1): 0.0918 (top 2): 0.1443 (top 3): 0.1941 
+---> [MotionQwen] FID: 9.0381
+---> [MotionQwen] Diversity: 7.1083

@@ -1,0 +1,599 @@
+JobId=2369767 JobName=attempt_42_vel
+   UserId=mot470(5159) GroupId=martius(4062) MCS_label=N/A
+   Priority=70298 Nice=0 Account=martius QOS=normal
+   JobState=RUNNING Reason=None Dependency=(null)
+   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
+   RunTime=00:00:00 TimeLimit=3-00:00:00 TimeMin=N/A
+   SubmitTime=2026-02-18T18:45:01 EligibleTime=2026-02-18T18:45:01
+   AccrueTime=2026-02-18T18:45:02
+   StartTime=2026-02-18T18:45:02 EndTime=2026-02-21T18:45:02 Deadline=N/A
+   PreemptEligibleTime=2026-02-18T18:46:02 PreemptTime=None
+   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-02-18T18:45:02 Scheduler=Main
+   Partition=a100-galvani AllocNode:Sid=galvani-login2:1467421
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=galvani-cn207
+   BatchHost=galvani-cn207
+   NumNodes=1 NumCPUs=8 NumTasks=1 CPUs/Task=8 ReqB:S:C:T=0:0:*:*
+   ReqTRES=cpu=8,mem=200G,node=1,billing=20,gres/gpu=2
+   AllocTRES=cpu=8,mem=200G,node=1,billing=20,gres/gpu=2,gres/gpu:a100=2
+   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
+   MinCPUsNode=8 MinMemoryNode=200G MinTmpDiskNode=0
+   Features=(null) DelayBoot=00:00:00
+   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
+   Command=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/mlcloud-scripts/train.sh
+   WorkDir=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP
+   StdErr=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_42_vel_errors.err
+   StdIn=/dev/null
+   StdOut=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_42_vel_stdout.out
+   TresPerNode=gres/gpu:2
+   TresPerTask=cpu=8
+   MailUser=samuel.hempelmann@student.uni-tuebingen.de MailType=INVALID_DEPEND,BEGIN,END,FAIL,REQUEUE,STAGE_OUT
+   
+
+/home/martius/mot470/Continuous-t2m/T2M-MLP
+Wed Feb 18 18:45:04 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A100-PCIE-40GB          On  |   00000000:01:00.0 Off |                    0 |
+| N/A   36C    P0             44W /  250W |       0MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA A100-PCIE-40GB          On  |   00000000:41:00.0 Off |                    0 |
+| N/A   35C    P0             52W /  250W |       0MiB /  40960MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+No Autoencoder checkpoint specified, initializing randomly.
+No Autoencoder checkpoint specified, initializing randomly.
+ReadingReading checkpoints/t2m/Comp_v6_KLD01/opt.txt 
+checkpoints/t2m/Comp_v6_KLD01/opt.txt
+Loading Evaluation Model Wrapper (Epoch 28) Completed!!
+Loading Evaluation Model Wrapper (Epoch 28) Completed!!
+Reading checkpoints/t2m/Comp_v6_KLD01/opt.txt
+Loading dataset t2m ...
+Reading checkpoints/t2m/Comp_v6_KLD01/opt.txt
+Loading dataset t2m ...
+Pointer Pointing at 0Pointer Pointing at 0
+
+Ground Truth Dataset Loading Completed!!!
+Ground Truth Dataset Loading Completed!!!
+Starting training on cuda:1...
+Starting training on cuda:0...
+Configuration:
+Base Model: Qwen/Qwen1.5-0.5B
+Autoencoder used: None
+Training Hyperparameters:
+- Epochs: 100
+- Train Batch Size: 32 (times number of gpus)
+- Eval Batch Size: 32
+- Learning Rate: 0.0001 to 1e-05
+- Weight Decay: 0.0
+- Teacher Forcing: 1.0 to 0.2 (Warmupstart at: 20.0% of epochs, Stabilizationstart at: 80.0% of epochs)
+- Loss Weights: Position = 1.0, Semantic = 0.0, Velocity = 5.0, Language = 0.0
+Dropping velocity loss when teacher forcing ratio < 0.0
+- LoRA: Rank = 32, Alpha = 64, Dropout = 0.1
+Epoch 1 | Teacher Forcing: 1.00 | LR: 0.000100
+Epoch 1 Done. | loss: 0.4797 | pos: 0.2417 | vel: 0.0476 | lang: -1.0000 | semantic: -1.0000
+
+[2026-02-18 18:52:30,542] [INFO] [real_accelerator.py:203:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[2026-02-18 18:52:30,542] [INFO] [real_accelerator.py:203:get_accelerator] Setting ds_accelerator to cuda (auto detect)
+[93m [WARNING] [0m async_io requires the dev libaio .so object and headers but these were not found.
+[93m [WARNING] [0m async_io requires the dev libaio .so object and headers but these were not found.
+[93m [WARNING] [0m async_io: please install the libaio-devel package with yum
+[93m [WARNING] [0m If libaio is already installed (perhaps from source), try setting the CFLAGS and LDFLAGS environment variables to where it can be found.
+[93m [WARNING] [0m async_io: please install the libaio-devel package with yum
+[93m [WARNING] [0m Please specify the CUTLASS repo directory as environment variable $CUTLASS_PATH
+[93m [WARNING] [0m If libaio is already installed (perhaps from source), try setting the CFLAGS and LDFLAGS environment variables to where it can be found.
+[93m [WARNING] [0m Please specify the CUTLASS repo directory as environment variable $CUTLASS_PATH
+[93m [WARNING] [0m sparse_attn requires a torch version >= 1.5 and < 2.0 but detected 2.2
+[93m [WARNING] [0m using untested triton version (2.2.0), only 1.0.0 is known to be compatible
+[93m [WARNING] [0m sparse_attn requires a torch version >= 1.5 and < 2.0 but detected 2.2
+[93m [WARNING] [0m using untested triton version (2.2.0), only 1.0.0 is known to be compatible
+
+--- Running Evaluation at Epoch 1 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.4680
+---> [MotionQwen] R_precision: (top 1): 0.0273 (top 2): 0.0532 (top 3): 0.0924 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 33.4234
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 2.4959
+
+--- Generating Visual Validation for Epoch 1 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep1_val_2_008646.gif
+
+Epoch 2 | Teacher Forcing: 1.00 | LR: 0.000100
+Epoch 2 Done. | loss: 0.2960 | pos: 0.1058 | vel: 0.0381 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 3 | Teacher Forcing: 1.00 | LR: 0.000100
+Epoch 3 Done. | loss: 0.2603 | pos: 0.0879 | vel: 0.0345 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 4 | Teacher Forcing: 1.00 | LR: 0.000100
+Epoch 4 Done. | loss: 0.2301 | pos: 0.0775 | vel: 0.0305 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 5 | Teacher Forcing: 1.00 | LR: 0.000100
+Epoch 5 Done. | loss: 0.2284 | pos: 0.0720 | vel: 0.0313 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 6 | Teacher Forcing: 1.00 | LR: 0.000099
+Epoch 6 Done. | loss: 0.2078 | pos: 0.0669 | vel: 0.0282 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 7 | Teacher Forcing: 1.00 | LR: 0.000099
+Epoch 7 Done. | loss: 0.2085 | pos: 0.0652 | vel: 0.0287 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 8 | Teacher Forcing: 1.00 | LR: 0.000099
+Epoch 8 Done. | loss: 0.1992 | pos: 0.0623 | vel: 0.0274 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 9 | Teacher Forcing: 1.00 | LR: 0.000099
+Epoch 9 Done. | loss: 0.1966 | pos: 0.0607 | vel: 0.0272 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 10 | Teacher Forcing: 1.00 | LR: 0.000098
+Epoch 10 Done. | loss: 0.1834 | pos: 0.0573 | vel: 0.0252 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 10 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.5392
+---> [MotionQwen] R_precision: (top 1): 0.0705 (top 2): 0.1310 (top 3): 0.1762 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 25.8376
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 4.4494
+
+--- Generating Visual Validation for Epoch 10 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep10_val_2_008646.gif
+
+Epoch 11 | Teacher Forcing: 1.00 | LR: 0.000098
+Epoch 11 Done. | loss: 0.1795 | pos: 0.0560 | vel: 0.0247 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 12 | Teacher Forcing: 1.00 | LR: 0.000097
+Epoch 12 Done. | loss: 0.1789 | pos: 0.0550 | vel: 0.0248 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 13 | Teacher Forcing: 1.00 | LR: 0.000097
+Epoch 13 Done. | loss: 0.1734 | pos: 0.0535 | vel: 0.0240 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 14 | Teacher Forcing: 1.00 | LR: 0.000096
+Epoch 14 Done. | loss: 0.1697 | pos: 0.0522 | vel: 0.0235 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 15 | Teacher Forcing: 1.00 | LR: 0.000096
+Epoch 15 Done. | loss: 0.1685 | pos: 0.0517 | vel: 0.0234 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 16 | Teacher Forcing: 1.00 | LR: 0.000095
+Epoch 16 Done. | loss: 0.1707 | pos: 0.0521 | vel: 0.0237 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 17 | Teacher Forcing: 1.00 | LR: 0.000094
+Epoch 17 Done. | loss: 0.1667 | pos: 0.0509 | vel: 0.0232 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 18 | Teacher Forcing: 1.00 | LR: 0.000094
+Epoch 18 Done. | loss: 0.1668 | pos: 0.0508 | vel: 0.0232 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 19 | Teacher Forcing: 1.00 | LR: 0.000093
+Epoch 19 Done. | loss: 0.1613 | pos: 0.0491 | vel: 0.0224 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 20 | Teacher Forcing: 1.00 | LR: 0.000092
+Epoch 20 Done. | loss: 0.1611 | pos: 0.0489 | vel: 0.0224 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 20 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.7900
+---> [MotionQwen] R_precision: (top 1): 0.0771 (top 2): 0.1390 (top 3): 0.1795 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 20.9268
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 6.3071
+
+--- Generating Visual Validation for Epoch 20 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep20_val_2_008646.gif
+
+Epoch 21 | Teacher Forcing: 1.00 | LR: 0.000091
+Epoch 21 Done. | loss: 0.1624 | pos: 0.0494 | vel: 0.0226 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 22 | Teacher Forcing: 0.99 | LR: 0.000091
+Epoch 22 Done. | loss: 0.1628 | pos: 0.0492 | vel: 0.0227 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 23 | Teacher Forcing: 0.97 | LR: 0.000090
+Epoch 23 Done. | loss: 0.1630 | pos: 0.0493 | vel: 0.0227 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 24 | Teacher Forcing: 0.96 | LR: 0.000089
+Epoch 24 Done. | loss: 0.1697 | pos: 0.0511 | vel: 0.0237 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 25 | Teacher Forcing: 0.95 | LR: 0.000088
+Epoch 25 Done. | loss: 0.1730 | pos: 0.0522 | vel: 0.0242 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 26 | Teacher Forcing: 0.93 | LR: 0.000087
+Epoch 26 Done. | loss: 0.1723 | pos: 0.0521 | vel: 0.0240 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 27 | Teacher Forcing: 0.92 | LR: 0.000086
+Epoch 27 Done. | loss: 0.1763 | pos: 0.0535 | vel: 0.0246 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 28 | Teacher Forcing: 0.91 | LR: 0.000085
+Epoch 28 Done. | loss: 0.1781 | pos: 0.0535 | vel: 0.0249 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 29 | Teacher Forcing: 0.89 | LR: 0.000084
+Epoch 29 Done. | loss: 0.1770 | pos: 0.0540 | vel: 0.0246 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 30 | Teacher Forcing: 0.88 | LR: 0.000083
+Epoch 30 Done. | loss: 0.1844 | pos: 0.0559 | vel: 0.0257 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 30 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.4698
+---> [MotionQwen] R_precision: (top 1): 0.0878 (top 2): 0.1589 (top 3): 0.2114 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 13.8628
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 6.6901
+
+--- Generating Visual Validation for Epoch 30 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep30_val_2_008646.gif
+
+Epoch 31 | Teacher Forcing: 0.87 | LR: 0.000081
+Epoch 31 Done. | loss: 0.1824 | pos: 0.0555 | vel: 0.0254 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 32 | Teacher Forcing: 0.85 | LR: 0.000080
+Epoch 32 Done. | loss: 0.1841 | pos: 0.0564 | vel: 0.0255 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 33 | Teacher Forcing: 0.84 | LR: 0.000079
+Epoch 33 Done. | loss: 0.1798 | pos: 0.0555 | vel: 0.0249 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 34 | Teacher Forcing: 0.83 | LR: 0.000078
+Epoch 34 Done. | loss: 0.1824 | pos: 0.0564 | vel: 0.0252 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 35 | Teacher Forcing: 0.81 | LR: 0.000077
+Epoch 35 Done. | loss: 0.1859 | pos: 0.0578 | vel: 0.0256 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 36 | Teacher Forcing: 0.80 | LR: 0.000075
+Epoch 36 Done. | loss: 0.1846 | pos: 0.0579 | vel: 0.0253 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 37 | Teacher Forcing: 0.79 | LR: 0.000074
+Epoch 37 Done. | loss: 0.1852 | pos: 0.0584 | vel: 0.0254 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 38 | Teacher Forcing: 0.77 | LR: 0.000073
+Epoch 38 Done. | loss: 0.1915 | pos: 0.0595 | vel: 0.0264 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 39 | Teacher Forcing: 0.76 | LR: 0.000072
+Epoch 39 Done. | loss: 0.1914 | pos: 0.0595 | vel: 0.0264 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 40 | Teacher Forcing: 0.75 | LR: 0.000070
+Epoch 40 Done. | loss: 0.1914 | pos: 0.0599 | vel: 0.0263 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 40 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.7256
+---> [MotionQwen] R_precision: (top 1): 0.0831 (top 2): 0.1363 (top 3): 0.1802 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 11.5048
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 6.9408
+
+--- Generating Visual Validation for Epoch 40 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep40_val_2_008646.gif
+
+Epoch 41 | Teacher Forcing: 0.73 | LR: 0.000069
+Epoch 41 Done. | loss: 0.1934 | pos: 0.0609 | vel: 0.0265 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 42 | Teacher Forcing: 0.72 | LR: 0.000068
+Epoch 42 Done. | loss: 0.1934 | pos: 0.0611 | vel: 0.0265 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 43 | Teacher Forcing: 0.71 | LR: 0.000066
+Epoch 43 Done. | loss: 0.1962 | pos: 0.0618 | vel: 0.0269 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 44 | Teacher Forcing: 0.69 | LR: 0.000065
+Epoch 44 Done. | loss: 0.1986 | pos: 0.0633 | vel: 0.0271 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 45 | Teacher Forcing: 0.68 | LR: 0.000063
+Epoch 45 Done. | loss: 0.1994 | pos: 0.0634 | vel: 0.0272 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 46 | Teacher Forcing: 0.67 | LR: 0.000062
+Epoch 46 Done. | loss: 0.1973 | pos: 0.0633 | vel: 0.0268 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 47 | Teacher Forcing: 0.65 | LR: 0.000061
+Epoch 47 Done. | loss: 0.2000 | pos: 0.0637 | vel: 0.0273 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 48 | Teacher Forcing: 0.64 | LR: 0.000059
+Epoch 48 Done. | loss: 0.2016 | pos: 0.0645 | vel: 0.0274 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 49 | Teacher Forcing: 0.63 | LR: 0.000058
+Epoch 49 Done. | loss: 0.2074 | pos: 0.0660 | vel: 0.0283 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 50 | Teacher Forcing: 0.61 | LR: 0.000056
+Epoch 50 Done. | loss: 0.2054 | pos: 0.0658 | vel: 0.0279 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 50 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.2354
+---> [MotionQwen] R_precision: (top 1): 0.0738 (top 2): 0.1410 (top 3): 0.1941 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 13.4166
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 6.6101
+
+--- Generating Visual Validation for Epoch 50 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep50_val_2_008646.gif
+
+Epoch 51 | Teacher Forcing: 0.60 | LR: 0.000055
+Epoch 51 Done. | loss: 0.2086 | pos: 0.0673 | vel: 0.0283 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 52 | Teacher Forcing: 0.59 | LR: 0.000054
+Epoch 52 Done. | loss: 0.2077 | pos: 0.0671 | vel: 0.0281 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 53 | Teacher Forcing: 0.57 | LR: 0.000052
+Epoch 53 Done. | loss: 0.2066 | pos: 0.0671 | vel: 0.0279 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 54 | Teacher Forcing: 0.56 | LR: 0.000051
+Epoch 54 Done. | loss: 0.2114 | pos: 0.0690 | vel: 0.0285 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 55 | Teacher Forcing: 0.55 | LR: 0.000049
+Epoch 55 Done. | loss: 0.2091 | pos: 0.0682 | vel: 0.0282 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 56 | Teacher Forcing: 0.53 | LR: 0.000048
+Epoch 56 Done. | loss: 0.2116 | pos: 0.0688 | vel: 0.0286 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 57 | Teacher Forcing: 0.52 | LR: 0.000047
+Epoch 57 Done. | loss: 0.2131 | pos: 0.0696 | vel: 0.0287 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 58 | Teacher Forcing: 0.51 | LR: 0.000045
+Epoch 58 Done. | loss: 0.2143 | pos: 0.0702 | vel: 0.0288 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 59 | Teacher Forcing: 0.49 | LR: 0.000044
+Epoch 59 Done. | loss: 0.2087 | pos: 0.0694 | vel: 0.0279 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 60 | Teacher Forcing: 0.48 | LR: 0.000042
+Epoch 60 Done. | loss: 0.2145 | pos: 0.0707 | vel: 0.0288 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 60 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.1415
+---> [MotionQwen] R_precision: (top 1): 0.0851 (top 2): 0.1376 (top 3): 0.2021 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 9.5813
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 6.7460
+
+--- Generating Visual Validation for Epoch 60 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep60_val_2_008646.gif
+
+Epoch 61 | Teacher Forcing: 0.47 | LR: 0.000041
+Epoch 61 Done. | loss: 0.2138 | pos: 0.0707 | vel: 0.0286 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 62 | Teacher Forcing: 0.45 | LR: 0.000040
+Epoch 62 Done. | loss: 0.2182 | pos: 0.0722 | vel: 0.0292 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 63 | Teacher Forcing: 0.44 | LR: 0.000038
+Epoch 63 Done. | loss: 0.2188 | pos: 0.0729 | vel: 0.0292 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 64 | Teacher Forcing: 0.43 | LR: 0.000037
+Epoch 64 Done. | loss: 0.2194 | pos: 0.0729 | vel: 0.0293 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 65 | Teacher Forcing: 0.41 | LR: 0.000036
+Epoch 65 Done. | loss: 0.2214 | pos: 0.0739 | vel: 0.0295 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 66 | Teacher Forcing: 0.40 | LR: 0.000035
+Epoch 66 Done. | loss: 0.2196 | pos: 0.0734 | vel: 0.0292 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 67 | Teacher Forcing: 0.39 | LR: 0.000033
+Epoch 67 Done. | loss: 0.2194 | pos: 0.0738 | vel: 0.0291 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 68 | Teacher Forcing: 0.37 | LR: 0.000032
+Epoch 68 Done. | loss: 0.2239 | pos: 0.0753 | vel: 0.0297 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 69 | Teacher Forcing: 0.36 | LR: 0.000031
+Epoch 69 Done. | loss: 0.2232 | pos: 0.0753 | vel: 0.0296 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 70 | Teacher Forcing: 0.35 | LR: 0.000030
+Epoch 70 Done. | loss: 0.2223 | pos: 0.0751 | vel: 0.0294 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 70 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.2885
+---> [MotionQwen] R_precision: (top 1): 0.0791 (top 2): 0.1456 (top 3): 0.1981 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 9.1582
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 7.1055
+
+--- Generating Visual Validation for Epoch 70 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep70_val_2_008646.gif
+
+Epoch 71 | Teacher Forcing: 0.33 | LR: 0.000029
+Epoch 71 Done. | loss: 0.2296 | pos: 0.0779 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 72 | Teacher Forcing: 0.32 | LR: 0.000027
+Epoch 72 Done. | loss: 0.2273 | pos: 0.0770 | vel: 0.0301 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 73 | Teacher Forcing: 0.31 | LR: 0.000026
+Epoch 73 Done. | loss: 0.2308 | pos: 0.0781 | vel: 0.0305 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 74 | Teacher Forcing: 0.29 | LR: 0.000025
+Epoch 74 Done. | loss: 0.2268 | pos: 0.0777 | vel: 0.0298 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 75 | Teacher Forcing: 0.28 | LR: 0.000024
+Epoch 75 Done. | loss: 0.2330 | pos: 0.0790 | vel: 0.0308 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 76 | Teacher Forcing: 0.27 | LR: 0.000023
+Epoch 76 Done. | loss: 0.2293 | pos: 0.0786 | vel: 0.0301 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 77 | Teacher Forcing: 0.25 | LR: 0.000022
+Epoch 77 Done. | loss: 0.2309 | pos: 0.0792 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 78 | Teacher Forcing: 0.24 | LR: 0.000021
+Epoch 78 Done. | loss: 0.2297 | pos: 0.0790 | vel: 0.0301 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 79 | Teacher Forcing: 0.23 | LR: 0.000020
+Epoch 79 Done. | loss: 0.2332 | pos: 0.0804 | vel: 0.0306 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 80 | Teacher Forcing: 0.21 | LR: 0.000019
+Epoch 80 Done. | loss: 0.2348 | pos: 0.0813 | vel: 0.0307 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 80 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.0451
+---> [MotionQwen] R_precision: (top 1): 0.0938 (top 2): 0.1682 (top 3): 0.2254 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 8.8790
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 7.4171
+
+--- Generating Visual Validation for Epoch 80 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep80_val_2_008646.gif
+
+Epoch 81 | Teacher Forcing: 0.20 | LR: 0.000019
+Epoch 81 Done. | loss: 0.2333 | pos: 0.0803 | vel: 0.0306 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 82 | Teacher Forcing: 0.20 | LR: 0.000018
+Epoch 82 Done. | loss: 0.2330 | pos: 0.0798 | vel: 0.0306 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 83 | Teacher Forcing: 0.20 | LR: 0.000017
+Epoch 83 Done. | loss: 0.2353 | pos: 0.0812 | vel: 0.0308 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 84 | Teacher Forcing: 0.20 | LR: 0.000016
+Epoch 84 Done. | loss: 0.2377 | pos: 0.0822 | vel: 0.0311 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 85 | Teacher Forcing: 0.20 | LR: 0.000016
+Epoch 85 Done. | loss: 0.2320 | pos: 0.0802 | vel: 0.0304 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 86 | Teacher Forcing: 0.20 | LR: 0.000015
+Epoch 86 Done. | loss: 0.2350 | pos: 0.0811 | vel: 0.0308 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 87 | Teacher Forcing: 0.20 | LR: 0.000014
+Epoch 87 Done. | loss: 0.2329 | pos: 0.0802 | vel: 0.0305 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 88 | Teacher Forcing: 0.20 | LR: 0.000014
+Epoch 88 Done. | loss: 0.2331 | pos: 0.0808 | vel: 0.0305 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 89 | Teacher Forcing: 0.20 | LR: 0.000013
+Epoch 89 Done. | loss: 0.2318 | pos: 0.0804 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 90 | Teacher Forcing: 0.20 | LR: 0.000013
+Epoch 90 Done. | loss: 0.2305 | pos: 0.0795 | vel: 0.0302 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 90 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.0410
+---> [MotionQwen] R_precision: (top 1): 0.0911 (top 2): 0.1662 (top 3): 0.2168 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 8.7493
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 7.2078
+
+--- Generating Visual Validation for Epoch 90 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep90_val_2_008646.gif
+
+Epoch 91 | Teacher Forcing: 0.20 | LR: 0.000012
+Epoch 91 Done. | loss: 0.2329 | pos: 0.0807 | vel: 0.0304 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 92 | Teacher Forcing: 0.20 | LR: 0.000012
+Epoch 92 Done. | loss: 0.2302 | pos: 0.0802 | vel: 0.0300 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 93 | Teacher Forcing: 0.20 | LR: 0.000011
+Epoch 93 Done. | loss: 0.2318 | pos: 0.0805 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 94 | Teacher Forcing: 0.20 | LR: 0.000011
+Epoch 94 Done. | loss: 0.2326 | pos: 0.0807 | vel: 0.0304 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 95 | Teacher Forcing: 0.20 | LR: 0.000011
+Epoch 95 Done. | loss: 0.2336 | pos: 0.0807 | vel: 0.0306 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 96 | Teacher Forcing: 0.20 | LR: 0.000011
+Epoch 96 Done. | loss: 0.2315 | pos: 0.0801 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 97 | Teacher Forcing: 0.20 | LR: 0.000010
+Epoch 97 Done. | loss: 0.2390 | pos: 0.0819 | vel: 0.0314 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 98 | Teacher Forcing: 0.20 | LR: 0.000010
+Epoch 98 Done. | loss: 0.2328 | pos: 0.0804 | vel: 0.0305 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 99 | Teacher Forcing: 0.20 | LR: 0.000010
+Epoch 99 Done. | loss: 0.2351 | pos: 0.0811 | vel: 0.0308 | lang: -1.0000 | semantic: -1.0000
+
+Epoch 100 | Teacher Forcing: 0.20 | LR: 0.000010
+Epoch 100 Done. | loss: 0.2316 | pos: 0.0801 | vel: 0.0303 | lang: -1.0000 | semantic: -1.0000
+
+
+--- Running Evaluation at Epoch 100 ---
+========== Evaluating Matching Score ==========
+---> [MotionQwen] Matching Score: 7.1444
+---> [MotionQwen] R_precision: (top 1): 0.0918 (top 2): 0.1443 (top 3): 0.1941 
+========== Evaluating FID ==========
+---> [MotionQwen] FID: 9.0381
+========== Evaluating Diversity ==========
+---> [MotionQwen] Diversity: 7.1083
+
+--- Generating Visual Validation for Epoch 100 ---
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_train_0_000001.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_train_1_000002.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_train_2_000003.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_val_0_012698.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_val_1_012808.gif
+Successfully generated motion and saved it to checkpoints/attempt_41-_fixed_scheduled_sampling/attempt_42_vel/visualizations/ep100_val_2_008646.gif
+
+Training complete.

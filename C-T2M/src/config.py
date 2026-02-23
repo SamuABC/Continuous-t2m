@@ -24,7 +24,7 @@ CHECKPOINT_TO_CONTINUE_PATH = ""
 # path to pretrained autoencoder to use in t2m training
 AUTOENCODER_TO_USE_PATH = ""
 # model used for inference and evaluation
-INFERENCE_MODEL_PATH = "pretrained/10_trained_params_ep100.pt"
+INFERENCE_MODEL_PATH = "pretrained/qwen/trained_params_ep90.pt"
 # path for visualizations during inference
 OUTPUT_PATH = "output/motion.gif"
 
