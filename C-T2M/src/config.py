@@ -20,9 +20,7 @@ CHECKPOINT_DIR = "checkpoints/dir_not_configured"
 # path to save current autoencoder pretraining results
 AUTOENCODER_CHECKPOINT_DIR = "checkpoints_ae"
 # path to pretrained t2m model to continue training from
-CHECKPOINT_TO_CONTINUE_PATH = (
-    "checkpoints/attempt_13_con_tf_0.8/trained_params/trained_params_ep200.pt"
-)
+CHECKPOINT_TO_CONTINUE_PATH = ""
 # path to pretrained autoencoder to use in t2m training
 AUTOENCODER_TO_USE_PATH = ""
 # model used for inference and evaluation
@@ -42,6 +40,7 @@ AE_NOISE_LEVEL = 0.1
 # flags
 RUN_BASELINE_LOSS_CHECK = False
 CONTINUE_WITH_CHECKPOINT = False
+FREEZE_ENCODER = False
 # hyperparameters
 EVAL_BATCH_SIZE = 32
 TRAIN_BATCH_SIZE = 32  # (times number of gpus used for training)
@@ -88,6 +87,11 @@ def update_config_from_args():
     parser.add_argument("--lambda_vel", type=float)
     parser.add_argument("--lambda_semantic", type=float)
     parser.add_argument("--lambda_lang", type=float)
+    parser.add_argument("--use_cfg", action="store_true")
+    parser.add_argument("--training_epochs", type=int)
+    parser.add_argument("--freeze_encoder", action="store_true")
+    parser.add_argument("--autoencoder_to_use_path", type=str)
+    parser.add_argument("--base_model_id", type=str)
 
     args, unknown = parser.parse_known_args()
 
@@ -106,6 +110,21 @@ def update_config_from_args():
     if args.lambda_lang is not None:
         global LAMBDA_LANG
         LAMBDA_LANG = args.lambda_lang
+    if args.use_cfg:
+        global USE_CFG
+        USE_CFG = True
+    if args.training_epochs is not None:
+        global EPOCHS
+        EPOCHS = args.training_epochs
+    if args.freeze_encoder:
+        global FREEZE_ENCODER
+        FREEZE_ENCODER = True
+    if args.autoencoder_to_use_path is not None:
+        global AUTOENCODER_TO_USE_PATH
+        AUTOENCODER_TO_USE_PATH = args.autoencoder_to_use_path
+    if args.base_model_id is not None:
+        global BASE_MODEL_ID
+        BASE_MODEL_ID = args.base_model_id
 
 
 def print_config():
@@ -115,6 +134,8 @@ def print_config():
         "Autoencoder used: "
         + (AUTOENCODER_TO_USE_PATH if AUTOENCODER_TO_USE_PATH else "None")
     )
+    if FREEZE_ENCODER:
+        print("Encoder weights will be frozen during training.")
     if CONTINUE_WITH_CHECKPOINT:
         print("Continuing training from checkpoint: " + CHECKPOINT_TO_CONTINUE_PATH)
     if USE_CFG:

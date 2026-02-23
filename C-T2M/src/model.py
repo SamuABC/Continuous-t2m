@@ -98,8 +98,9 @@ class MotionModelCont(nn.Module):
                     }
                 )
                 # freeze encoder/decoder weights
-                # for param in self.motion_encoder.parameters():
-                #     param.requires_grad = False
+                if cfg.FREEZE_ENCODER:
+                    for param in self.motion_encoder.parameters():
+                        param.requires_grad = False
                 # for param in self.motion_decoder.parameters():
                 #     param.requires_grad = False
             else:

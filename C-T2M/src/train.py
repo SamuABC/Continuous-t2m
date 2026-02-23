@@ -19,6 +19,7 @@ from accelerate import (
     InitProcessGroupKwargs,
 )
 from accelerate.utils import set_seed
+from dataset import HumanML3DDataset
 from evaluation import evaluate_diversity, evaluate_fid, evaluate_matching_score
 from guoevaluation.dataset_motion_loader import get_dataset_motion_loader
 from guoevaluation.evaluator_wrapper import EvaluatorModelWrapper
@@ -28,8 +29,6 @@ from model_motion_loader import get_qwen_model_loader
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from visualization.visualization import visualize_transformer_motion
-
-from dataset import HumanML3DDataset
 
 
 def seed_everything(seed=42):
@@ -298,7 +297,7 @@ if __name__ == "__main__":
     model.backbone.config.use_cache = False
 
     # load checkpoint if continuing training
-    if cfg.CONTINUE_WITH_CHECKPOINT:
+    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH is not None:
         print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
         model.load_state_dict(
             torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=device),

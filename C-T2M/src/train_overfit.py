@@ -3,12 +3,11 @@ import os
 import config as cfg
 import torch
 import torch.optim as optim
+from dataset import HumanML3DDataset
 from model import MotionModelCont
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from train import validate_visual
-
-from dataset import HumanML3DDataset
 
 if __name__ == "__main__":
     # --- Setup ---
@@ -20,7 +19,7 @@ if __name__ == "__main__":
     ), "train/eval batch sizes must be equal for overfit test"
 
     # load checkpoint if continuing training
-    if cfg.CONTINUE_WITH_CHECKPOINT:
+    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH is not None:
         print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
         model.load_state_dict(
             torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=cfg.DEVICE),

@@ -5,12 +5,11 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dataset import HumanML3DDataset
 from motion_autoencoder.motion_autoencoder import MotionAutoEncoder, NTXentLoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoConfig, AutoTokenizer
-
-from dataset import HumanML3DDataset
 
 
 def plot_ae_losses(recon_losses, aux_losses, save_dir, aux_label):

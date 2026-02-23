@@ -4,13 +4,13 @@ This repository contains code for a text-to-motion generation model that generat
 ## Setup
 First, cd into the project directory.
 ```bash
-cd T2M-MLP
+cd C-T2M
 ```
 ### Environment
 Create and activate the conda environment.
 ```bash
-conda create -n t2m-mlp python=3.10
-conda activate t2m-mlp
+conda create -n c-t2m python=3.10
+conda activate c-t2m
 pip install -r requirements.txt
 ```
 

@@ -9,7 +9,7 @@ pip install -r requirements.txt
 ```
 
 # Download HumanML3D Dataset
-Download the HumanML3D dataset and place it in `./data/HumanML3D`. More detailed information about how to download the dataset can be found [here](../T2M-MLP/README.md).
+Download the HumanML3D dataset and place it in `./data/HumanML3D`. More detailed information about how to download the dataset can be found [here](../C-T2M/README.md).
 
 ## Training
 To start the training, run:
