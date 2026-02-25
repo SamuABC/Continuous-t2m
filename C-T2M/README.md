@@ -37,7 +37,7 @@ bash prepare/download_glove.sh
 
 ### Download evaluation models
 For the evaluation, you need to download the pretrained models for FID, Diversity, Matching, and R-Precision.
-You can download them from [here]. Unzip and place them under the checkpoint directory. It should look like this:
+You can download them from [this repository](https://github.com/EricGuo5513/text-to-motion?tab=readme-ov-file). They have a download link in the README. Unzip and place them under the checkpoint directory. It should look like this:
 ```
 ./checkpoints/t2m/
 ./checkpoints/t2m/Comp_v6_KLD01/           # Text-to-motion generation model
