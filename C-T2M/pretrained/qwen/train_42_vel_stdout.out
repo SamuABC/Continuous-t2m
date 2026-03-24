@@ -1,37 +1,3 @@
-JobId=2369767 JobName=attempt_42_vel
-   UserId=mot470(5159) GroupId=martius(4062) MCS_label=N/A
-   Priority=70298 Nice=0 Account=martius QOS=normal
-   JobState=RUNNING Reason=None Dependency=(null)
-   Requeue=1 Restarts=0 BatchFlag=1 Reboot=0 ExitCode=0:0
-   RunTime=00:00:00 TimeLimit=3-00:00:00 TimeMin=N/A
-   SubmitTime=2026-02-18T18:45:01 EligibleTime=2026-02-18T18:45:01
-   AccrueTime=2026-02-18T18:45:02
-   StartTime=2026-02-18T18:45:02 EndTime=2026-02-21T18:45:02 Deadline=N/A
-   PreemptEligibleTime=2026-02-18T18:46:02 PreemptTime=None
-   SuspendTime=None SecsPreSuspend=0 LastSchedEval=2026-02-18T18:45:02 Scheduler=Main
-   Partition=a100-galvani AllocNode:Sid=galvani-login2:1467421
-   ReqNodeList=(null) ExcNodeList=(null)
-   NodeList=galvani-cn207
-   BatchHost=galvani-cn207
-   NumNodes=1 NumCPUs=8 NumTasks=1 CPUs/Task=8 ReqB:S:C:T=0:0:*:*
-   ReqTRES=cpu=8,mem=200G,node=1,billing=20,gres/gpu=2
-   AllocTRES=cpu=8,mem=200G,node=1,billing=20,gres/gpu=2,gres/gpu:a100=2
-   Socks/Node=* NtasksPerN:B:S:C=0:0:*:* CoreSpec=*
-   MinCPUsNode=8 MinMemoryNode=200G MinTmpDiskNode=0
-   Features=(null) DelayBoot=00:00:00
-   OverSubscribe=OK Contiguous=0 Licenses=(null) LicensesAlloc=(null) Network=(null)
-   Command=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/mlcloud-scripts/train.sh
-   WorkDir=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP
-   StdErr=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_42_vel_errors.err
-   StdIn=/dev/null
-   StdOut=/mnt/lustre/home/martius/mot470/Continuous-t2m/T2M-MLP/output/train_42_vel_stdout.out
-   TresPerNode=gres/gpu:2
-   TresPerTask=cpu=8
-   MailUser=samuel.hempelmann@student.uni-tuebingen.de MailType=INVALID_DEPEND,BEGIN,END,FAIL,REQUEUE,STAGE_OUT
-   
-
-/home/martius/mot470/Continuous-t2m/T2M-MLP
-Wed Feb 18 18:45:04 2026       
 +-----------------------------------------------------------------------------------------+
 | NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
 +-----------------------------------------+------------------------+----------------------+

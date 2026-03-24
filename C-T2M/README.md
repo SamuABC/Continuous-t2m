@@ -53,6 +53,10 @@ Then run the following command:
 ```bash
 python3 src/inference.py "a person walks slowly hunched over to the right."
 ```
+You can also generate 3 motions from the validation and 3 motions from the test set by running:
+```bash
+python3 src/inference.py
+```
 You can set the parameters for generation and the output path in `src/config.py`.
 The output will be a gif of the generated motion saved to the specified output path.
 
@@ -61,7 +65,7 @@ To train the model, run the following command:
 ```bash
 python3 src/train.py
 ```
-You can set the training parameters and the `CHECKPOINT_DIR` in `src/config.py`.
+You can set the training parameters and the `CHECKPOINT_DIR` in `src/config.py`. Some arguments can also be passed in the command line. You can see the available arguments in `src/config.py`.
 
 ## Evaluation
 To evaluate the model (FID, Diversity, Matching, R-Precision), set the model parameters in `src/config.py`.  
