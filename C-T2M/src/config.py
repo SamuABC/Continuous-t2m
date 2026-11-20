@@ -73,7 +73,7 @@ COND_DROPOUT_RATE = 0.1  # probability of dropping text conditioning during trai
 GUIDANCE_SCALE = 2.5
 
 # inference
-VISUAL_VAL_EPOCH_PRINT = 100  # just to inform about the inference epoch number
+VISUAL_VAL_EPOCH_PRINT = 90  # just to inform about the inference epoch number
 
 PROMPT = "### Instruction:\nGenerate a motion matching the following input human motion description\n\n### Input:\n"
 PROMPT_END = "\n\nResponse: <Motion>"
