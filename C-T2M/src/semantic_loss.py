@@ -1,3 +1,7 @@
+import os
+
+import config as cfg
+import numpy as np
 import torch
 import torch.nn as nn
 from guoevaluation.modules import MotionEncoderBiGRUCo, MovementConvEncoder
@@ -31,13 +35,28 @@ class SemanticMotionLoss(nn.Module):
         self.movement_encoder.load_state_dict(checkpoint["movement_encoder"])
         self.motion_encoder.load_state_dict(checkpoint["motion_encoder"])
 
+        # Load normalization stats for conversion from model space -> evaluator space
+        model_mean = torch.from_numpy(np.load(os.path.join(cfg.DATA_ROOT, "Mean.npy"))).float()
+        model_std = torch.from_numpy(np.load(os.path.join(cfg.DATA_ROOT, "Std.npy"))).float() + 1e-8
+
+        meta_dir = "./checkpoints/t2m/text_mot_match/meta"
+        if not os.path.exists(os.path.join(meta_dir, "mean.npy")):
+            meta_dir = "./checkpoints/t2m/Comp_v6_KLD01/meta"
+        eval_mean = torch.from_numpy(np.load(os.path.join(meta_dir, "mean.npy"))).float()
+        eval_std = torch.from_numpy(np.load(os.path.join(meta_dir, "std.npy"))).float() + 1e-8
+
+        self.register_buffer("model_mean", model_mean)
+        self.register_buffer("model_std", model_std)
+        self.register_buffer("eval_mean", eval_mean)
+        self.register_buffer("eval_std", eval_std)
+
         for param in self.movement_encoder.parameters():
             param.requires_grad = False
         for param in self.motion_encoder.parameters():
             param.requires_grad = False
 
         def disable_inplace(module):
-            if isinstance(module, nn.LeakyReLU) or isinstance(module, nn.ReLU):
+            if isinstance(module, (nn.LeakyReLU, nn.ReLU, nn.Dropout)):
                 module.inplace = False
 
         self.movement_encoder.apply(disable_inplace)
@@ -49,11 +68,22 @@ class SemanticMotionLoss(nn.Module):
         self.movement_encoder.to(device, dtype=torch.float32)
         self.motion_encoder.to(device, dtype=torch.float32)
 
+    def train(self, mode: bool = True):
+        super().train(mode)
+        # Keep MovementConvEncoder in eval() so nn.Dropout stays disabled
+        self.movement_encoder.eval()
+        # MotionEncoderBiGRUCo has no Dropout/BatchNorm; cuDNN requires GRU in train() for backward()
+        self.motion_encoder.train(mode)
+        return self
+
     def forward(self, motions, m_lens):
         """
         input: motions (B, T, D)
         output: features (B, D_emb)
         """
+        # Convert from model normalization to evaluator normalization
+        motions = (motions * self.model_std + self.model_mean - self.eval_mean) / self.eval_std
+
         # Sort batch by length (descending) required for pack_padded_sequence
         m_lens_sorted, sort_idx = m_lens.sort(descending=True)
         motions_sorted = motions[sort_idx]

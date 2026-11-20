@@ -246,11 +246,10 @@ def validate_visual(model, epoch, save_dir):
                 with codecs.open(text_path, "r", encoding="utf-8") as f:
                     texts = [line.strip().split("#")[0] for line in f.readlines()]
                     prompt = texts[0]
-                    formatted_prompt = cfg.PROMPT + prompt + cfg.PROMPT_END
 
                 # Generate
                 with torch.no_grad():
-                    generated_motion = model.generate(formatted_prompt)
+                    generated_motion = model.generate(prompt)
 
                 # Post-processing
                 motion_data = generated_motion[0].cpu().numpy()
@@ -297,7 +296,7 @@ if __name__ == "__main__":
     model.backbone.config.use_cache = False
 
     # load checkpoint if continuing training
-    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH is not None:
+    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH:
         print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
         model.load_state_dict(
             torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=device),

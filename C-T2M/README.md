@@ -72,5 +72,5 @@ To evaluate the model (FID, Diversity, Matching, R-Precision), set the model par
 The `INFERENCE_MODEL_PATH` parameter in `src/config.py` should point to the trained model you want to evaluate.  
 Then run the following command:
 ```bash
-python3 src/evaluate.py
+python3 src/evaluation.py
 ```

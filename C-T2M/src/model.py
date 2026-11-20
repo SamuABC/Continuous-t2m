@@ -191,9 +191,12 @@ class MotionModelCont(nn.Module):
         text_mask_bool = text_mask.bool()
         text_positions = (text_mask_bool.cumsum(dim=1) - 1).clamp(min=0)
 
-        # motion starts after the last text token
+        # motion starts after the last text token (or at 0 if text was completely dropped for CFG)
+        has_text = text_mask.any(dim=1, keepdim=True)
         last_text_pos = text_positions.max(dim=1, keepdim=True).values
-        start_pos = last_text_pos + 1
+        start_pos = torch.where(
+            has_text, last_text_pos + 1, torch.zeros_like(last_text_pos)
+        )
 
         motion_range = torch.arange(
             1, motion_input.shape[1] + 1, device=device
@@ -280,12 +283,19 @@ class MotionModelCont(nn.Module):
             logits = outputs.logits
             text_logits = logits[:, : text_len - 1, :].contiguous()
             text_labels = input_ids[:, 1:].contiguous()
-            vocab_size = text_logits.shape[-1]
-            loss_lang_fn = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+            valid_lang_tokens = (text_labels != self.tokenizer.pad_token_id).any()
 
-            loss_lang = loss_lang_fn(
-                text_logits.view(-1, vocab_size), text_labels.view(-1)
-            )
+            if valid_lang_tokens:
+                vocab_size = text_logits.shape[-1]
+                loss_lang_fn = nn.CrossEntropyLoss(
+                    ignore_index=self.tokenizer.pad_token_id
+                )
+                loss_lang = loss_lang_fn(
+                    text_logits.view(-1, vocab_size), text_labels.view(-1)
+                )
+            else:
+                loss_lang = torch.tensor(0.0, device=device)
+
             total_loss = loss_motion + (cfg.LAMBDA_LANG * loss_lang)
         else:
             # skip language loss computation if weight is zero

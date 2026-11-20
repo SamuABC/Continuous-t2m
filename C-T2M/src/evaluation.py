@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from datetime import datetime
 from os.path import join as pjoin
+import os
 
 import config as cfg
 import numpy as np
@@ -167,6 +168,9 @@ def get_metric_statistics(values):
 
 
 def evaluation(log_file):
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
     with open(log_file, "w") as f:
         all_metrics = OrderedDict(
             {
@@ -335,7 +339,8 @@ if __name__ == "__main__":
     # device setup
     device_id = 0  # Adjusted to 0 for single GPU
     device = torch.device("cuda:%d" % device_id if torch.cuda.is_available() else "cpu")
-    torch.cuda.set_device(device_id)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(device_id)
 
     # model setup
     model = MotionModelCont(cfg.BASE_MODEL_ID, cfg.MOTION_DIM).to(device)

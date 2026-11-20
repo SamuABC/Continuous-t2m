@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ), "train/eval batch sizes must be equal for overfit test"
 
     # load checkpoint if continuing training
-    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH is not None:
+    if cfg.CONTINUE_WITH_CHECKPOINT and cfg.CHECKPOINT_TO_CONTINUE_PATH:
         print(f"Loading checkpoint from {cfg.CHECKPOINT_TO_CONTINUE_PATH}...")
         model.load_state_dict(
             torch.load(cfg.CHECKPOINT_TO_CONTINUE_PATH, map_location=cfg.DEVICE),
@@ -79,16 +79,17 @@ if __name__ == "__main__":
         if cfg.CONTINUE_WITH_CHECKPOINT:
             tf_ratio = cfg.LOWEST_TF_RATIO  # use lowest ratio when continuing training
         else:
-            if epoch < 0.2 * cfg.EPOCHS:
-                # warm-up phase (0-20% epochs): full teacher forcing
+            tf_decay_start = int(cfg.EPOCHS * cfg.TF_DECAY_START)
+            tf_decay_end = int(cfg.EPOCHS * cfg.TF_DECAY_END)
+            if epoch < tf_decay_start:
+                # warm-up phase: full teacher forcing
                 tf_ratio = 1.0
-            elif epoch < 0.8 * cfg.EPOCHS:
-                # linear decay phase (20-80% epochs)
-                progress = (epoch - 0.2 * cfg.EPOCHS) / (0.6 * cfg.EPOCHS)
-                # decay from 1.0 down to cfg.LOWEST_TF_RATIO
+            elif epoch < tf_decay_end:
+                # linear decay phase
+                progress = (epoch - tf_decay_start) / (tf_decay_end - tf_decay_start)
                 tf_ratio = 1.0 - (progress * (1.0 - cfg.LOWEST_TF_RATIO))
             else:
-                # final phase (80-100% epochs): hold at lowest ratio
+                # final phase: hold at lowest ratio
                 tf_ratio = cfg.LOWEST_TF_RATIO
 
         print(
@@ -106,7 +107,7 @@ if __name__ == "__main__":
         motion_mask = first_batch["motion_mask"].to(cfg.DEVICE)
 
         optimizer.zero_grad()
-        loss_motion, loss_lang, total_loss, _ = model(
+        loss_logs, total_loss, _ = model(
             input_ids, motion, motion_mask, teacher_forcing_ratio=tf_ratio
         )
         total_loss.backward()
@@ -118,8 +119,8 @@ if __name__ == "__main__":
         # log loss
         current_loss = total_loss.item()
         total_train_loss += current_loss
-        total_motion_loss += loss_motion.item()
-        total_lang_loss += loss_lang.item()
+        total_motion_loss += loss_logs["pos"]
+        total_lang_loss += loss_logs["lang"]
 
         scheduler.step()
 

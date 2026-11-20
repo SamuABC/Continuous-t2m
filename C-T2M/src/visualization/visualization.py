@@ -1,3 +1,5 @@
+import os
+
 import config as cfg
 import torch
 import visualization.plot_3d_global as plot_3d
@@ -8,6 +10,9 @@ def visualize_transformer_motion(y_pred_denorm, prompt, output_path=cfg.OUTPUT_P
     """
     Visualizes a motion as a gif.
     """
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     joint_count = 22  # HumanML3D has 22 joints
     pred_xyz = recover_from_ric(torch.from_numpy(y_pred_denorm).float(), joint_count)
